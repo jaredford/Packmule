@@ -1,0 +1,42 @@
+<resources>
+    <string name="app_name">Packmule</string>
+    <string name="forward">Forward</string>
+    <string name="right">Right</string>
+    <string name="reverse">Reverse</string>
+    <string name="left">Left</string>
+    <string name="stopped">Stopped</string>
+    <string name="stop">Stop</string>
+    <string name="joystick_disabled_reason">is not in manual mode!</string>
+    <string name="title_activity_main">MainActivity</string>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+
+    <string name="action_settings">Settings</string>
+    <string name="nav_bar_home">Home</string>
+    <string name="title_activity_settings">Settings</string>
+
+    <!-- Strings related to Settings -->
+
+    <!-- Example General settings -->
+    <string name="pref_header_general">General</string>
+
+    <string name="pref_title_manual_mode">Enable manual mode</string>
+    <string name="pref_description_manual_mode">Allow this application to directly control the packmule
+    </string>
+
+    <string name="pref_title_display_name">Name your packmule</string>
+    <string name="pref_default_display_name">Packmule</string>
+
+    <!--<string name="pref_title_add_friends_to_messages">Add friends to messages</string>
+    <string-array name="pref_example_list_titles">
+        <item>Always</item>
+        <item>When possible</item>
+        <item>Never</item>
+    </string-array>
+    <string-array name="pref_example_list_values">
+        <item>1</item>
+        <item>0</item>
+        <item>-1</item>
+    </string-array>-->
+</resources>
