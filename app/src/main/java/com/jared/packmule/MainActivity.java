@@ -40,15 +40,16 @@ import java.lang.reflect.Method;
 import java.util.Set;
 import java.util.UUID;
 
+@SuppressWarnings("deprecation")
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
-    final static int RECIEVE_MESSAGE = 123;
-    final static StringBuilder sb = new StringBuilder();
+    private final static int RECEIVE_MESSAGE = 123;
+    private final static StringBuilder sb = new StringBuilder();
     private static final UUID MY_UUID = UUID.fromString("01001101-0900-1100-8080-B1975F9B34AB");
-    private static String TAG = "MainActivity";
-    public final MyHandler messageHandler = new MyHandler(this);
-    final String MAC = "98:D3:35:00:AA:83";
-    final int REQUEST_ENABLE_BT = 101;
+    private static final String TAG = "MainActivity";
+    private final MyHandler messageHandler = new MyHandler(this);
+    private final String MAC = "98:D3:35:00:AA:83";
+    private final int REQUEST_ENABLE_BT = 101;
     private final BroadcastReceiver mStateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -72,14 +73,7 @@ public class MainActivity extends AppCompatActivity
             }
         }
     };
-    ConnectedThread mConnectedThread;
-    RelativeLayout layout_joystick;
-    TextView directionText;
-    Button buttonStop;
-    JoyStick js;
-    Boolean isSnackBarShown = false;
-    private BluetoothSocket mBluetoothSocket = null;
-    private BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    private final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
@@ -96,6 +90,11 @@ public class MainActivity extends AppCompatActivity
             }
         }
     };
+    private ConnectedThread mConnectedThread;
+    private TextView directionText;
+    private JoyStick js;
+    private Boolean isSnackBarShown = false;
+    private BluetoothSocket mBluetoothSocket = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -176,16 +175,15 @@ public class MainActivity extends AppCompatActivity
 
     private void setupJoyStick() {
         directionText = (TextView) findViewById(R.id.directionText);
-        buttonStop = (Button) findViewById(R.id.button_stop);
-        layout_joystick = (RelativeLayout) findViewById(R.id.layout_joystick);
+        Button buttonStop = (Button) findViewById(R.id.button_stop);
+        RelativeLayout layout_joystick = (RelativeLayout) findViewById(R.id.layout_joystick);
 
-        js = new JoyStick(getApplicationContext(), layout_joystick, R.drawable.image_button);
-        js.setStickSize(150, 150);
-        js.setLayoutSize(600, 600);
-        js.setLayoutAlpha(150);
-        js.setStickAlpha(100);
-        js.setOffset(90);
-        js.setMinimumDistance(50);
+        js = new JoyStick(getApplicationContext(), layout_joystick);
+        js.setStickSize();
+        js.setLayoutAlpha();
+        js.setStickAlpha();
+        js.setOffset();
+        js.setMinimumDistance();
         buttonStop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -410,7 +408,7 @@ public class MainActivity extends AppCompatActivity
             MainActivity activity = mActivity.get();
             if (activity != null) {
                 switch (msg.what) {
-                    case RECIEVE_MESSAGE:
+                    case RECEIVE_MESSAGE:
                         byte[] readBuf = (byte[]) msg.obj;
                         String strIncom = new String(readBuf, 0, msg.arg1);
                         sb.append(strIncom);
@@ -456,7 +454,7 @@ public class MainActivity extends AppCompatActivity
                 try {
                     // Read from the InputStream
                     bytes = mmInStream.read(buffer);        // Get number of bytes and message in "buffer"
-                    messageHandler.obtainMessage(RECIEVE_MESSAGE, bytes, -1, buffer).sendToTarget();     // Send to message queue Handler
+                    messageHandler.obtainMessage(RECEIVE_MESSAGE, bytes, -1, buffer).sendToTarget();     // Send to message queue Handler
                 } catch (Exception e) {
                     break;
                 }

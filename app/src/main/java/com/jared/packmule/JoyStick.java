@@ -10,6 +10,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 
+@SuppressWarnings("ALL")
 class JoyStick {
     static final int STICK_NONE = 0;
     static final int STICK_UP = 1;
@@ -25,21 +26,21 @@ class JoyStick {
     private int LAYOUT_ALPHA = 200;
     private int OFFSET = 0;
 
-    private ViewGroup mLayout;
-    private LayoutParams params;
+    private final ViewGroup mLayout;
+    private final LayoutParams params;
     private int stick_width, stick_height;
 
     private int position_x = 0, position_y = 0, min_distance = 0;
     private float distance = 0, angle = 0;
 
-    private DrawCanvas draw;
-    private Paint paint;
+    private final DrawCanvas draw;
+    private final Paint paint;
     private Bitmap stick;
 
     private boolean touch_state = false;
 
-    JoyStick(Context context, ViewGroup layout, int stick_res_id) {
-        stick = BitmapFactory.decodeResource(context.getResources(), stick_res_id);
+    JoyStick(Context context, ViewGroup layout) {
+        stick = BitmapFactory.decodeResource(context.getResources(), R.drawable.image_button);
 
         stick_width = stick.getWidth();
         stick_height = stick.getHeight();
@@ -124,8 +125,8 @@ class JoyStick {
         return min_distance;
     }
 
-    void setMinimumDistance(int minDistance) {
-        min_distance = minDistance;
+    void setMinimumDistance() {
+        min_distance = 50;
     }
 
     int get8Direction() {
@@ -174,30 +175,30 @@ class JoyStick {
         return OFFSET;
     }
 
-    void setOffset(int offset) {
-        OFFSET = offset;
+    void setOffset() {
+        OFFSET = 90;
     }
 
     public int getStickAlpha() {
         return STICK_ALPHA;
     }
 
-    void setStickAlpha(int alpha) {
-        STICK_ALPHA = alpha;
-        paint.setAlpha(alpha);
+    void setStickAlpha() {
+        STICK_ALPHA = 100;
+        paint.setAlpha(100);
     }
 
     public int getLayoutAlpha() {
         return LAYOUT_ALPHA;
     }
 
-    void setLayoutAlpha(int alpha) {
-        LAYOUT_ALPHA = alpha;
-        mLayout.getBackground().setAlpha(alpha);
+    void setLayoutAlpha() {
+        LAYOUT_ALPHA = 150;
+        mLayout.getBackground().setAlpha(150);
     }
 
-    void setStickSize(int width, int height) {
-        stick = Bitmap.createScaledBitmap(stick, width, height, false);
+    void setStickSize() {
+        stick = Bitmap.createScaledBitmap(stick, 150, 150, false);
         stick_width = stick.getWidth();
         stick_height = stick.getHeight();
     }
@@ -218,11 +219,6 @@ class JoyStick {
     public void setStickHeight(int height) {
         stick = Bitmap.createScaledBitmap(stick, stick_width, height, false);
         stick_height = stick.getHeight();
-    }
-
-    void setLayoutSize(int width, int height) {
-//        params.width = width;
-//        params.height = height;
     }
 
     public int getLayoutWidth() {

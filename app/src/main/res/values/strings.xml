@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Packmule</string>
     <string name="forward">Forward</string>
     <string name="right">Right</string>
@@ -7,7 +7,10 @@
     <string name="stopped">Stopped</string>
     <string name="stop">Stop</string>
     <string name="joystick_disabled_reason">is not in manual mode!</string>
-    <string name="title_activity_main">MainActivity</string>
+    <string name="title_activity_main" tools:keep="@string/title_activity_main">MainActivity</string>
+    <string name="packmule_dt02">Packmule - Design Team 02</string>
+    <string name="more">More</string>
+    <string name="not_implemented">Not implemented</string>
 
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
