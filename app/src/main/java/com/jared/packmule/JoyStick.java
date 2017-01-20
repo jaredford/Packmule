@@ -5,13 +5,14 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.support.v7.app.AppCompatActivity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 
 @SuppressWarnings("ALL")
-class JoyStick {
+class JoyStick extends AppCompatActivity {
     static final int STICK_NONE = 0;
     static final int STICK_UP = 1;
     static final int STICK_UPRIGHT = 2;

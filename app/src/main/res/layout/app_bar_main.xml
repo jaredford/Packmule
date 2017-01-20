@@ -31,7 +31,7 @@
         android:layout_height="71dp"
         android:layout_gravity=""
         android:layout_margin="@dimen/fab_margin"
-        android:visibility="invisible"
+        android:visibility="visible"
         app:layout_anchor="@+id/include"
         app:layout_anchorGravity="bottom|right"
         app:srcCompat="@android:drawable/stat_sys_data_bluetooth" />

@@ -1,5 +1,6 @@
 package com.jared.packmule;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
@@ -8,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -17,6 +19,8 @@ import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.NavigationView;
 import android.support.design.widget.Snackbar;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -45,56 +49,19 @@ public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
     private final static int RECEIVE_MESSAGE = 123;
     private final static StringBuilder sb = new StringBuilder();
-    private static final UUID MY_UUID = UUID.fromString("01001101-0900-1100-8080-B1975F9B34AB");
+    private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private static final String TAG = "MainActivity";
     private final MyHandler messageHandler = new MyHandler(this);
     private final String MAC = "98:D3:35:00:AA:83";
     private final int REQUEST_ENABLE_BT = 101;
-    private final BroadcastReceiver mStateReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-            if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
-                final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
-                        BluetoothAdapter.ERROR);
-                switch (state) {
-                    case BluetoothAdapter.STATE_OFF:
-                        fab.setVisibility(View.VISIBLE);
-                        break;
-                    case BluetoothAdapter.STATE_TURNING_OFF:
-                        break;
-                    case BluetoothAdapter.STATE_ON:
-                        fab.setVisibility(View.INVISIBLE);
-                        break;
-                    case BluetoothAdapter.STATE_TURNING_ON:
-                        break;
-                }
-            }
-        }
-    };
+    private final int REQUEST_COARSE_LOCATION = 404;
     private final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-            String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
-            String action = intent.getAction();
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (device.getAddress().equals(MAC)) {
-                    mBluetoothAdapter.cancelDiscovery();
-                    Toast.makeText(MainActivity.this, "Found " + muleName, Toast.LENGTH_SHORT).show();
-                }
-            }
-        }
-    };
     private ConnectedThread mConnectedThread;
     private TextView directionText;
     private JoyStick js;
     private Boolean isSnackBarShown = false;
     private BluetoothSocket mBluetoothSocket = null;
+    private int currentDirection = JoyStick.STICK_NONE;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -106,18 +73,20 @@ public class MainActivity extends AppCompatActivity
         registerReceiver(mStateReceiver, btFilter);
         IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
         registerReceiver(mReceiver, filter);
-
+        IntentFilter bondFilter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+        registerReceiver(mBondReceiver, bondFilter);
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        if (!mBluetoothAdapter.isEnabled()) {
-            fab.setVisibility(View.VISIBLE);
-        } else {
-            fab.setVisibility(View.INVISIBLE);
-            packmuleConnect();
+        if (mBluetoothAdapter.isEnabled()) {
+            fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.search));
         }
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                turnOnBluetooth();
+                if (!mBluetoothAdapter.isEnabled()) {
+                    turnOnBluetooth();
+                } else {
+                    packmuleConnect();
+                }
             }
         });
 
@@ -130,6 +99,34 @@ public class MainActivity extends AppCompatActivity
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
         setupJoyStick();
+    }
+
+    protected void checkLocationPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
+                    REQUEST_COARSE_LOCATION);
+        } else {
+            mBluetoothAdapter.startDiscovery();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case REQUEST_COARSE_LOCATION: {
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    mBluetoothAdapter.startDiscovery();
+                } else {
+                    packmuleConnect();
+                }
+                break;
+            }
+        }
     }
 
     private void turnOnBluetooth() {
@@ -153,10 +150,13 @@ public class MainActivity extends AppCompatActivity
                     for (BluetoothDevice device : pairedDevices) {
                         if (device.getAddress().equals(MAC)) {
                             pairedWithPackmule = true;
+                            ConnectThread ct = new ConnectThread(device);
+                            ct.start();
                         }
                     }
                 }
                 if (!pairedWithPackmule) {
+                    checkLocationPermission();
                     mBluetoothAdapter.startDiscovery();
                 }
             }
@@ -170,89 +170,9 @@ public class MainActivity extends AppCompatActivity
         } catch (Exception e) {
             Log.e(TAG, "Could not create Insecure RFComm Connection", e);
         }
-        return device.createRfcommSocketToServiceRecord(MY_UUID);
+        return device.createInsecureRfcommSocketToServiceRecord(MY_UUID);
     }
 
-    private void setupJoyStick() {
-        directionText = (TextView) findViewById(R.id.directionText);
-        Button buttonStop = (Button) findViewById(R.id.button_stop);
-        RelativeLayout layout_joystick = (RelativeLayout) findViewById(R.id.layout_joystick);
-
-        js = new JoyStick(getApplicationContext(), layout_joystick);
-        js.setStickSize();
-        js.setLayoutAlpha();
-        js.setStickAlpha();
-        js.setOffset();
-        js.setMinimumDistance();
-        buttonStop.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                directionText.setText(getResources().getString(R.string.stopped));
-                mConnectedThread.write("Stopped");
-            }
-        });
-        layout_joystick.setOnTouchListener(new View.OnTouchListener() {
-            public boolean onTouch(View arg0, MotionEvent arg1) {
-                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-                boolean manualMode = prefs.getBoolean("manual_mode", true);
-                String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
-                if (manualMode) {
-                    js.drawStick(arg1);
-                    if (arg1.getAction() == MotionEvent.ACTION_DOWN
-                            || arg1.getAction() == MotionEvent.ACTION_MOVE) {
-                        int direction = js.get8Direction();
-                        if (direction == JoyStick.STICK_UP) {
-                            directionText.setText(getResources().getString(R.string.forward));
-                        } else if (direction == JoyStick.STICK_UPRIGHT) {
-                            directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.right));
-                        } else if (direction == JoyStick.STICK_RIGHT) {
-                            directionText.setText(getResources().getString(R.string.right));
-                        } else if (direction == JoyStick.STICK_DOWNRIGHT) {
-                            directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.right));
-                        } else if (direction == JoyStick.STICK_DOWN) {
-                            directionText.setText(getResources().getString(R.string.reverse));
-                        } else if (direction == JoyStick.STICK_DOWNLEFT) {
-                            directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.left));
-                        } else if (direction == JoyStick.STICK_LEFT) {
-                            directionText.setText(getResources().getString(R.string.left));
-                        } else if (direction == JoyStick.STICK_UPLEFT) {
-                            directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.left));
-                        } else if (direction == JoyStick.STICK_NONE) {
-                            directionText.setText(getResources().getString(R.string.stopped));
-                        }
-                    } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
-                        directionText.setText(getResources().getString(R.string.stopped));
-                    }
-                } else if (!isSnackBarShown) {
-                    final Intent i = new Intent(getApplicationContext(), SettingsActivity.class);
-                    i.putExtra(PreferenceActivity.EXTRA_SHOW_FRAGMENT, SettingsActivity.GeneralPreferenceFragment.class.getName());
-                    i.putExtra(PreferenceActivity.EXTRA_NO_HEADERS, true);
-                    View.OnClickListener listener = new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            startActivity(i);
-                        }
-                    };
-                    Snackbar.make(arg0, muleName + " " + getResources().getString(R.string.joystick_disabled_reason), Snackbar.LENGTH_LONG)
-                            .setCallback(new Snackbar.Callback() {
-                                @Override
-                                public void onDismissed(Snackbar snackbar, int event) {
-                                    isSnackBarShown = false;
-                                    super.onDismissed(snackbar, event);
-                                }
-
-                                @Override
-                                public void onShown(Snackbar snackbar) {
-                                    isSnackBarShown = true;
-                                    super.onShown(snackbar);
-                                }
-                            })
-                            .setAction("Fix", listener).show();
-                }
-                return true;
-            }
-        });
-    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -320,16 +240,17 @@ public class MainActivity extends AppCompatActivity
         super.onDestroy();
         unregisterReceiver(mReceiver);
         unregisterReceiver(mStateReceiver);
+        unregisterReceiver(mBondReceiver);
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        final FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         if (!mBluetoothAdapter.isEnabled()) {
             fab.setVisibility(View.VISIBLE);
+            fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.bluetooth));
         } else {
-            fab.setVisibility(View.INVISIBLE);
             new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -358,7 +279,12 @@ public class MainActivity extends AppCompatActivity
                     try {
                         if (mBluetoothSocket != null) {
                             mBluetoothSocket.connect();
-                            Log.d(TAG, "....Connection ok...");
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    fab.setVisibility(View.INVISIBLE);
+                                }
+                            });
                         }
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -386,7 +312,7 @@ public class MainActivity extends AppCompatActivity
         Log.d(TAG, "...In onPause()...");
 
         try {
-            mBluetoothSocket.close();
+            //mBluetoothSocket.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -424,7 +350,64 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private class ConnectedThread extends Thread {
+    private class ConnectThread extends Thread {
+        private final BluetoothSocket mmSocket;
+        private final BluetoothDevice mmDevice;
+
+        ConnectThread(BluetoothDevice device) {
+            // Use a temporary object that is later assigned to mmSocket
+            // because mmSocket is final.
+            BluetoothSocket tmp = null;
+            mmDevice = device;
+
+            try {
+                // Get a BluetoothSocket to connect with the given BluetoothDevice.
+                // MY_UUID is the app's UUID string, also used in the server code.
+                tmp = device.createInsecureRfcommSocketToServiceRecord(MY_UUID);
+            } catch (IOException e) {
+                Log.e(TAG, "Socket's create() method failed", e);
+            }
+            mmSocket = tmp;
+        }
+
+        public void run() {
+            // Cancel discovery because it otherwise slows down the connection.
+            mBluetoothAdapter.cancelDiscovery();
+
+            try {
+                // Connect to the remote device through the socket. This call blocks
+                // until it succeeds or throws an exception.
+                mmSocket.connect();
+            } catch (IOException connectException) {
+                connectException.printStackTrace();
+                try {
+                    mmSocket.close();
+                } catch (IOException closeException) {
+                    Log.e(TAG, "Could not close the client socket", closeException);
+                }
+                return;
+            }
+
+            // The connection attempt succeeded. Perform work associated with
+            // the connection in a separate thread.
+            bindToConnectedThread(mmSocket);
+        }
+
+        // Closes the client socket and causes the thread to finish.
+        public void cancel() {
+            try {
+                mmSocket.close();
+            } catch (IOException e) {
+                Log.e(TAG, "Could not close the client socket", e);
+            }
+        }
+    }
+
+    private void bindToConnectedThread(BluetoothSocket socket) {
+        mConnectedThread = new ConnectedThread(socket);
+    }
+
+    public class ConnectedThread extends Thread {
         private final InputStream mmInStream;
         private final OutputStream mmOutStream;
 
@@ -462,14 +445,183 @@ public class MainActivity extends AppCompatActivity
         }
 
         /* Call this from the main activity to send data to the remote device */
-        void write(String message) {
+        public void write(String message) {
             Log.d(TAG, "...Data to send: " + message + "...");
             byte[] msgBuffer = message.getBytes();
             try {
                 mmOutStream.write(msgBuffer);
             } catch (Exception e) {
-                Log.d(TAG, "...Error data send: " + e.getMessage() + "...");
+                e.printStackTrace();
             }
         }
+    }
+
+    private final BroadcastReceiver mStateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+            FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+            if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
+                final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
+                        BluetoothAdapter.ERROR);
+                switch (state) {
+                    case BluetoothAdapter.STATE_OFF:
+                        fab.setBackgroundDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.bluetooth));
+                        break;
+                    case BluetoothAdapter.STATE_TURNING_OFF:
+                        fab.setBackgroundDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.bluetooth));
+                        break;
+                    case BluetoothAdapter.STATE_ON:
+                        fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.search));
+                        break;
+                    case BluetoothAdapter.STATE_TURNING_ON:
+                        break;
+                }
+            }
+        }
+    };
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+            String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
+            String action = intent.getAction();
+            if (action.equals(BluetoothDevice.ACTION_FOUND)) {
+                // Discovery has found a device. Get the BluetoothDevice
+                // object and its info from the Intent.
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if (device.getAddress().equals(MAC)) {
+                    mBluetoothAdapter.cancelDiscovery();
+                    Toast.makeText(MainActivity.this, "Found " + muleName, Toast.LENGTH_SHORT).show();
+                    ConnectThread connectThread = new ConnectThread(device);
+                    connectThread.start();
+                }
+            }
+        }
+    };
+    private final BroadcastReceiver mBondReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+            String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
+            String action = intent.getAction();
+            FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+            if (action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)) {
+                // Discovery has found a device. Get the BluetoothDevice
+                // object and its info from the Intent.
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if (device.getAddress().equals(MAC)) {
+                    final int state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR);
+                    switch (state) {
+                        case BluetoothDevice.BOND_NONE:
+                            fab.setVisibility(View.VISIBLE);
+                            if (mBluetoothAdapter.isEnabled())
+                                fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.search));
+                            else
+                                fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.bluetooth));
+                            break;
+                        case BluetoothDevice.BOND_BONDED:
+                            fab.setVisibility(View.INVISIBLE);
+                            showToast("Connected to " + muleName + "!");
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+        }
+    };
+
+    public void setupJoyStick() {
+        directionText = (TextView) findViewById(R.id.directionText);
+        Button buttonStop = (Button) findViewById(R.id.button_stop);
+        RelativeLayout layout_joystick = (RelativeLayout) findViewById(R.id.layout_joystick);
+
+        final JoyStick js = new JoyStick(getApplicationContext(), layout_joystick);
+        js.setStickSize();
+        js.setLayoutAlpha();
+        js.setStickAlpha();
+        js.setOffset();
+        js.setMinimumDistance();
+        buttonStop.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                directionText.setText(getResources().getString(R.string.stopped));
+                mConnectedThread.write("Stop\n");
+            }
+        });
+        layout_joystick.setOnTouchListener(new View.OnTouchListener() {
+            public boolean onTouch(View arg0, MotionEvent arg1) {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+                boolean manualMode = prefs.getBoolean("manual_mode", true);
+                String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
+                if (manualMode) {
+                    js.drawStick(arg1);
+                    if (arg1.getAction() == MotionEvent.ACTION_DOWN
+                            || arg1.getAction() == MotionEvent.ACTION_MOVE) {
+                        int direction = js.get8Direction();
+                        if (direction != currentDirection) {
+                            currentDirection = direction;
+                            if (direction == JoyStick.STICK_UP) {
+                                directionText.setText(getResources().getString(R.string.forward));
+                                mConnectedThread.write("Move forward\n");
+                            } else if (direction == JoyStick.STICK_UPRIGHT) {
+                                directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.right));
+                                mConnectedThread.write("Move forward right\n");
+                            } else if (direction == JoyStick.STICK_RIGHT) {
+                                directionText.setText(getResources().getString(R.string.right));
+                                mConnectedThread.write("Move right\n");
+                            } else if (direction == JoyStick.STICK_DOWNRIGHT) {
+                                directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.right));
+                                mConnectedThread.write("Move reverse right\n");
+                            } else if (direction == JoyStick.STICK_DOWN) {
+                                directionText.setText(getResources().getString(R.string.reverse));
+                                mConnectedThread.write("Move reverse\n");
+                            } else if (direction == JoyStick.STICK_DOWNLEFT) {
+                                directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.left));
+                                mConnectedThread.write("Move reverse left\n");
+                            } else if (direction == JoyStick.STICK_LEFT) {
+                                directionText.setText(getResources().getString(R.string.left));
+                                mConnectedThread.write("Move left\n");
+                            } else if (direction == JoyStick.STICK_UPLEFT) {
+                                directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.left));
+                                mConnectedThread.write("Move forward left\n");
+                            } else if (direction == JoyStick.STICK_NONE) {
+                                directionText.setText(getResources().getString(R.string.stopped));
+                                mConnectedThread.write("Stop\n");
+                            }
+                        }
+                    } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
+                        directionText.setText(getResources().getString(R.string.stopped));
+                        mConnectedThread.write("Stop\n");
+
+                    }
+                } else if (!isSnackBarShown) {
+                    final Intent i = new Intent(getApplicationContext(), SettingsActivity.class);
+                    i.putExtra(PreferenceActivity.EXTRA_SHOW_FRAGMENT, SettingsActivity.GeneralPreferenceFragment.class.getName());
+                    i.putExtra(PreferenceActivity.EXTRA_NO_HEADERS, true);
+                    View.OnClickListener listener = new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            startActivity(i);
+                        }
+                    };
+                    Snackbar.make(arg0, muleName + " " + getResources().getString(R.string.joystick_disabled_reason), Snackbar.LENGTH_LONG)
+                            .setCallback(new Snackbar.Callback() {
+                                @Override
+                                public void onDismissed(Snackbar snackbar, int event) {
+                                    isSnackBarShown = false;
+                                    super.onDismissed(snackbar, event);
+                                }
+
+                                @Override
+                                public void onShown(Snackbar snackbar) {
+                                    isSnackBarShown = true;
+                                    super.onShown(snackbar);
+                                }
+                            })
+                            .setAction("Fix", listener).show();
+                }
+                return true;
+            }
+        });
     }
 }
