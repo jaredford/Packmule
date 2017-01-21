@@ -76,9 +76,6 @@ public class MainActivity extends AppCompatActivity
         IntentFilter bondFilter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         registerReceiver(mBondReceiver, bondFilter);
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        if (mBluetoothAdapter.isEnabled()) {
-            fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.search));
-        }
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -249,7 +246,6 @@ public class MainActivity extends AppCompatActivity
         final FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         if (!mBluetoothAdapter.isEnabled()) {
             fab.setVisibility(View.VISIBLE);
-            fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.bluetooth));
         } else {
             new Thread(new Runnable() {
                 @Override
@@ -312,7 +308,7 @@ public class MainActivity extends AppCompatActivity
         Log.d(TAG, "...In onPause()...");
 
         try {
-            //mBluetoothSocket.close();
+            mBluetoothSocket.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -466,13 +462,10 @@ public class MainActivity extends AppCompatActivity
                         BluetoothAdapter.ERROR);
                 switch (state) {
                     case BluetoothAdapter.STATE_OFF:
-                        fab.setBackgroundDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.bluetooth));
-                        break;
                     case BluetoothAdapter.STATE_TURNING_OFF:
-                        fab.setBackgroundDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.bluetooth));
+                        fab.setVisibility(View.VISIBLE);
                         break;
                     case BluetoothAdapter.STATE_ON:
-                        fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.search));
                         break;
                     case BluetoothAdapter.STATE_TURNING_ON:
                         break;
@@ -513,10 +506,6 @@ public class MainActivity extends AppCompatActivity
                     switch (state) {
                         case BluetoothDevice.BOND_NONE:
                             fab.setVisibility(View.VISIBLE);
-                            if (mBluetoothAdapter.isEnabled())
-                                fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.search));
-                            else
-                                fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.bluetooth));
                             break;
                         case BluetoothDevice.BOND_BONDED:
                             fab.setVisibility(View.INVISIBLE);
@@ -545,7 +534,11 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View v) {
                 directionText.setText(getResources().getString(R.string.stopped));
-                mConnectedThread.write("Stop\n");
+                try {
+                    mConnectedThread.write("Stop\n");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         });
         layout_joystick.setOnTouchListener(new View.OnTouchListener() {
@@ -555,6 +548,7 @@ public class MainActivity extends AppCompatActivity
                 String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
                 if (manualMode) {
                     js.drawStick(arg1);
+                    try {
                     if (arg1.getAction() == MotionEvent.ACTION_DOWN
                             || arg1.getAction() == MotionEvent.ACTION_MOVE) {
                         int direction = js.get8Direction();
@@ -593,6 +587,9 @@ public class MainActivity extends AppCompatActivity
                         directionText.setText(getResources().getString(R.string.stopped));
                         mConnectedThread.write("Stop\n");
 
+                    }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                 } else if (!isSnackBarShown) {
                     final Intent i = new Intent(getApplicationContext(), SettingsActivity.class);
