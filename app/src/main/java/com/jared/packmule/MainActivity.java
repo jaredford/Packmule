@@ -58,7 +58,6 @@ public class MainActivity extends AppCompatActivity
     private final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
     private ConnectedThread mConnectedThread;
     private TextView directionText;
-    private JoyStick js;
     private Boolean isSnackBarShown = false;
     private BluetoothSocket mBluetoothSocket = null;
     private int currentDirection = JoyStick.STICK_NONE;
@@ -112,7 +111,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onRequestPermissionsResult(int requestCode,
-                                           String permissions[], int[] grantResults) {
+                                           @NonNull String permissions[], @NonNull int[] grantResults) {
         switch (requestCode) {
             case REQUEST_COARSE_LOCATION: {
                 if (grantResults.length > 0
@@ -336,9 +335,10 @@ public class MainActivity extends AppCompatActivity
                         sb.append(strIncom);
                         int endOfLineIndex = sb.indexOf("\r\n");
                         if (endOfLineIndex > 0) {
-                            String sbprint = sb.substring(0, endOfLineIndex);
+                            break;
+                            /*String sbprint = sb.substring(0, endOfLineIndex);
                             sb.delete(0, sb.length());
-                            /*txtArduino.setText("Data from Arduino: " + sbprint);*/
+                            txtArduino.setText("Data from Arduino: " + sbprint);*/
                         }
                         break;
                 }
@@ -359,7 +359,7 @@ public class MainActivity extends AppCompatActivity
             try {
                 // Get a BluetoothSocket to connect with the given BluetoothDevice.
                 // MY_UUID is the app's UUID string, also used in the server code.
-                tmp = device.createInsecureRfcommSocketToServiceRecord(MY_UUID);
+                tmp = mmDevice.createInsecureRfcommSocketToServiceRecord(MY_UUID);
             } catch (IOException e) {
                 Log.e(TAG, "Socket's create() method failed", e);
             }
@@ -441,7 +441,7 @@ public class MainActivity extends AppCompatActivity
         }
 
         /* Call this from the main activity to send data to the remote device */
-        public void write(String message) {
+        void write(String message) {
             Log.d(TAG, "...Data to send: " + message + "...");
             byte[] msgBuffer = message.getBytes();
             try {
@@ -519,6 +519,7 @@ public class MainActivity extends AppCompatActivity
         }
     };
 
+    //region Joystick
     public void setupJoyStick() {
         directionText = (TextView) findViewById(R.id.directionText);
         Button buttonStop = (Button) findViewById(R.id.button_stop);
@@ -549,45 +550,45 @@ public class MainActivity extends AppCompatActivity
                 if (manualMode) {
                     js.drawStick(arg1);
                     try {
-                    if (arg1.getAction() == MotionEvent.ACTION_DOWN
-                            || arg1.getAction() == MotionEvent.ACTION_MOVE) {
-                        int direction = js.get8Direction();
-                        if (direction != currentDirection) {
-                            currentDirection = direction;
-                            if (direction == JoyStick.STICK_UP) {
-                                directionText.setText(getResources().getString(R.string.forward));
-                                mConnectedThread.write("Move forward\n");
-                            } else if (direction == JoyStick.STICK_UPRIGHT) {
-                                directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.right));
-                                mConnectedThread.write("Move forward right\n");
-                            } else if (direction == JoyStick.STICK_RIGHT) {
-                                directionText.setText(getResources().getString(R.string.right));
-                                mConnectedThread.write("Move right\n");
-                            } else if (direction == JoyStick.STICK_DOWNRIGHT) {
-                                directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.right));
-                                mConnectedThread.write("Move reverse right\n");
-                            } else if (direction == JoyStick.STICK_DOWN) {
-                                directionText.setText(getResources().getString(R.string.reverse));
-                                mConnectedThread.write("Move reverse\n");
-                            } else if (direction == JoyStick.STICK_DOWNLEFT) {
-                                directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.left));
-                                mConnectedThread.write("Move reverse left\n");
-                            } else if (direction == JoyStick.STICK_LEFT) {
-                                directionText.setText(getResources().getString(R.string.left));
-                                mConnectedThread.write("Move left\n");
-                            } else if (direction == JoyStick.STICK_UPLEFT) {
-                                directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.left));
-                                mConnectedThread.write("Move forward left\n");
-                            } else if (direction == JoyStick.STICK_NONE) {
-                                directionText.setText(getResources().getString(R.string.stopped));
-                                mConnectedThread.write("Stop\n");
+                        if (arg1.getAction() == MotionEvent.ACTION_DOWN
+                                || arg1.getAction() == MotionEvent.ACTION_MOVE) {
+                            int direction = js.get8Direction();
+                            if (direction != currentDirection) {
+                                currentDirection = direction;
+                                if (direction == JoyStick.STICK_UP) {
+                                    directionText.setText(getResources().getString(R.string.forward));
+                                    mConnectedThread.write("Move forward\n");
+                                } else if (direction == JoyStick.STICK_UPRIGHT) {
+                                    directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.right));
+                                    mConnectedThread.write("Move forward right\n");
+                                } else if (direction == JoyStick.STICK_RIGHT) {
+                                    directionText.setText(getResources().getString(R.string.right));
+                                    mConnectedThread.write("Move right\n");
+                                } else if (direction == JoyStick.STICK_DOWNRIGHT) {
+                                    directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.right));
+                                    mConnectedThread.write("Move reverse right\n");
+                                } else if (direction == JoyStick.STICK_DOWN) {
+                                    directionText.setText(getResources().getString(R.string.reverse));
+                                    mConnectedThread.write("Move reverse\n");
+                                } else if (direction == JoyStick.STICK_DOWNLEFT) {
+                                    directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.left));
+                                    mConnectedThread.write("Move reverse left\n");
+                                } else if (direction == JoyStick.STICK_LEFT) {
+                                    directionText.setText(getResources().getString(R.string.left));
+                                    mConnectedThread.write("Move left\n");
+                                } else if (direction == JoyStick.STICK_UPLEFT) {
+                                    directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.left));
+                                    mConnectedThread.write("Move forward left\n");
+                                } else if (direction == JoyStick.STICK_NONE) {
+                                    directionText.setText(getResources().getString(R.string.stopped));
+                                    mConnectedThread.write("Stop\n");
+                                }
                             }
-                        }
-                    } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
-                        directionText.setText(getResources().getString(R.string.stopped));
-                        mConnectedThread.write("Stop\n");
+                        } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
+                            directionText.setText(getResources().getString(R.string.stopped));
+                            mConnectedThread.write("Stop\n");
 
-                    }
+                        }
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -621,4 +622,5 @@ public class MainActivity extends AppCompatActivity
             }
         });
     }
+    //endregion
 }
