@@ -61,11 +61,13 @@ public class MainActivity extends AppCompatActivity
     private Boolean isSnackBarShown = false;
     private BluetoothSocket mBluetoothSocket = null;
     private int currentDirection = JoyStick.STICK_NONE;
+    TextView arduinoTxt;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        arduinoTxt = (TextView) findViewById(R.id.arduinoTxt);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         IntentFilter btFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
@@ -335,10 +337,9 @@ public class MainActivity extends AppCompatActivity
                         sb.append(strIncom);
                         int endOfLineIndex = sb.indexOf("\r\n");
                         if (endOfLineIndex > 0) {
-                            break;
-                            /*String sbprint = sb.substring(0, endOfLineIndex);
+                            String sbprint = sb.substring(0, endOfLineIndex);
                             sb.delete(0, sb.length());
-                            txtArduino.setText("Data from Arduino: " + sbprint);*/
+                            activity.setArduinoTxt(sbprint);
                         }
                         break;
                 }
@@ -536,7 +537,7 @@ public class MainActivity extends AppCompatActivity
             public void onClick(View v) {
                 directionText.setText(getResources().getString(R.string.stopped));
                 try {
-                    mConnectedThread.write("Stop\n");
+                    mConnectedThread.write(JoyStick.STICK_NONE + "");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -557,37 +558,29 @@ public class MainActivity extends AppCompatActivity
                                 currentDirection = direction;
                                 if (direction == JoyStick.STICK_UP) {
                                     directionText.setText(getResources().getString(R.string.forward));
-                                    mConnectedThread.write("Move forward\n");
                                 } else if (direction == JoyStick.STICK_UPRIGHT) {
                                     directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.right));
-                                    mConnectedThread.write("Move forward right\n");
                                 } else if (direction == JoyStick.STICK_RIGHT) {
                                     directionText.setText(getResources().getString(R.string.right));
-                                    mConnectedThread.write("Move right\n");
                                 } else if (direction == JoyStick.STICK_DOWNRIGHT) {
                                     directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.right));
-                                    mConnectedThread.write("Move reverse right\n");
                                 } else if (direction == JoyStick.STICK_DOWN) {
                                     directionText.setText(getResources().getString(R.string.reverse));
-                                    mConnectedThread.write("Move reverse\n");
                                 } else if (direction == JoyStick.STICK_DOWNLEFT) {
                                     directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.left));
-                                    mConnectedThread.write("Move reverse left\n");
                                 } else if (direction == JoyStick.STICK_LEFT) {
                                     directionText.setText(getResources().getString(R.string.left));
-                                    mConnectedThread.write("Move left\n");
                                 } else if (direction == JoyStick.STICK_UPLEFT) {
                                     directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.left));
-                                    mConnectedThread.write("Move forward left\n");
                                 } else if (direction == JoyStick.STICK_NONE) {
                                     directionText.setText(getResources().getString(R.string.stopped));
-                                    mConnectedThread.write("Stop\n");
                                 }
+                                mConnectedThread.write(direction + "");
                             }
                         } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
+                            currentDirection = JoyStick.STICK_NONE;
                             directionText.setText(getResources().getString(R.string.stopped));
-                            mConnectedThread.write("Stop\n");
-
+                            mConnectedThread.write(JoyStick.STICK_NONE + "");
                         }
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -623,4 +616,7 @@ public class MainActivity extends AppCompatActivity
         });
     }
     //endregion
+    public void setArduinoTxt(String text) {
+        arduinoTxt.setText(text);
+    }
 }
