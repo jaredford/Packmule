@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -43,7 +44,7 @@ class JoyStick extends AppCompatActivity {
     JoyStick(Context context, ViewGroup layout) {
         stick = BitmapFactory.decodeResource(context.getResources(), R.drawable.image_button);
 
-        stick_width = stick.getWidth();
+        stick_width =  stick.getWidth();
         stick_height = stick.getHeight();
 
         draw = new DrawCanvas(context);
@@ -117,6 +118,8 @@ class JoyStick extends AppCompatActivity {
 
     public float getDistance() {
         if (distance > min_distance && touch_state) {
+            if(distance > params.height / 2)
+                return params.height / 2;
             return distance;
         }
         return 0;
@@ -155,6 +158,9 @@ class JoyStick extends AppCompatActivity {
         return 0;
     }
 
+    public LayoutParams getParams() {
+        return params;
+    }
     public int get4Direction() {
         if (distance > min_distance && touch_state) {
             if (angle >= 225 && angle < 315) {
@@ -176,8 +182,8 @@ class JoyStick extends AppCompatActivity {
         return OFFSET;
     }
 
-    void setOffset() {
-        OFFSET = 90;
+    void setOffset(float density) {
+        OFFSET = (int) (30 * density);
     }
 
     public int getStickAlpha() {
@@ -198,8 +204,8 @@ class JoyStick extends AppCompatActivity {
         mLayout.getBackground().setAlpha(150);
     }
 
-    void setStickSize() {
-        stick = Bitmap.createScaledBitmap(stick, 150, 150, false);
+    void setStickSize(float density) {
+        stick = Bitmap.createScaledBitmap(stick, (int) (50*density), (int) (50*density), false);
         stick_width = stick.getWidth();
         stick_height = stick.getHeight();
     }

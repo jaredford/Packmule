@@ -41,6 +41,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
@@ -60,7 +61,6 @@ public class MainActivity extends AppCompatActivity
     private TextView directionText;
     private Boolean isSnackBarShown = false;
     private BluetoothSocket mBluetoothSocket = null;
-    private int currentDirection = JoyStick.STICK_NONE;
     TextView arduinoTxt;
 
     @Override
@@ -80,6 +80,8 @@ public class MainActivity extends AppCompatActivity
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                if (mBluetoothAdapter == null)
+                    return;
                 if (!mBluetoothAdapter.isEnabled()) {
                     turnOnBluetooth();
                 } else {
@@ -245,6 +247,8 @@ public class MainActivity extends AppCompatActivity
     public void onResume() {
         super.onResume();
         final FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        if (mBluetoothAdapter == null)
+            return;
         if (!mBluetoothAdapter.isEnabled()) {
             fab.setVisibility(View.VISIBLE);
         } else {
@@ -391,13 +395,13 @@ public class MainActivity extends AppCompatActivity
         }
 
         // Closes the client socket and causes the thread to finish.
-        public void cancel() {
+        /*public void cancel() {
             try {
                 mmSocket.close();
             } catch (IOException e) {
                 Log.e(TAG, "Could not close the client socket", e);
             }
-        }
+        }*/
     }
 
     private void bindToConnectedThread(BluetoothSocket socket) {
@@ -527,10 +531,11 @@ public class MainActivity extends AppCompatActivity
         RelativeLayout layout_joystick = (RelativeLayout) findViewById(R.id.layout_joystick);
 
         final JoyStick js = new JoyStick(getApplicationContext(), layout_joystick);
-        js.setStickSize();
+        float density = getResources().getDisplayMetrics().density;
+        js.setStickSize(density);
         js.setLayoutAlpha();
         js.setStickAlpha();
-        js.setOffset();
+        js.setOffset(density);
         js.setMinimumDistance();
         buttonStop.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -550,39 +555,39 @@ public class MainActivity extends AppCompatActivity
                 String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
                 if (manualMode) {
                     js.drawStick(arg1);
+                    String message = "";
                     try {
                         if (arg1.getAction() == MotionEvent.ACTION_DOWN
                                 || arg1.getAction() == MotionEvent.ACTION_MOVE) {
                             int direction = js.get8Direction();
-                            if (direction != currentDirection) {
-                                currentDirection = direction;
-                                if (direction == JoyStick.STICK_UP) {
-                                    directionText.setText(getResources().getString(R.string.forward));
-                                } else if (direction == JoyStick.STICK_UPRIGHT) {
-                                    directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.right));
-                                } else if (direction == JoyStick.STICK_RIGHT) {
-                                    directionText.setText(getResources().getString(R.string.right));
-                                } else if (direction == JoyStick.STICK_DOWNRIGHT) {
-                                    directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.right));
-                                } else if (direction == JoyStick.STICK_DOWN) {
-                                    directionText.setText(getResources().getString(R.string.reverse));
-                                } else if (direction == JoyStick.STICK_DOWNLEFT) {
-                                    directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.left));
-                                } else if (direction == JoyStick.STICK_LEFT) {
-                                    directionText.setText(getResources().getString(R.string.left));
-                                } else if (direction == JoyStick.STICK_UPLEFT) {
-                                    directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.left));
-                                } else if (direction == JoyStick.STICK_NONE) {
-                                    directionText.setText(getResources().getString(R.string.stopped));
-                                }
-                                mConnectedThread.write(direction + "");
+                            if (direction == JoyStick.STICK_UP) {
+                                directionText.setText(getResources().getString(R.string.forward));
+                            } else if (direction == JoyStick.STICK_UPRIGHT) {
+                                directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.right));
+                            } else if (direction == JoyStick.STICK_RIGHT) {
+                                directionText.setText(getResources().getString(R.string.right));
+                            } else if (direction == JoyStick.STICK_DOWNRIGHT) {
+                                directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.right));
+                            } else if (direction == JoyStick.STICK_DOWN) {
+                                directionText.setText(getResources().getString(R.string.reverse));
+                            } else if (direction == JoyStick.STICK_DOWNLEFT) {
+                                directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.left));
+                            } else if (direction == JoyStick.STICK_LEFT) {
+                                directionText.setText(getResources().getString(R.string.left));
+                            } else if (direction == JoyStick.STICK_UPLEFT) {
+                                directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.left));
+                            } else if (direction == JoyStick.STICK_NONE) {
+                                directionText.setText(getResources().getString(R.string.stopped));
                             }
                         } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
-                            currentDirection = JoyStick.STICK_NONE;
                             directionText.setText(getResources().getString(R.string.stopped));
-                            mConnectedThread.write(JoyStick.STICK_NONE + "");
                         }
+                        message = createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
+                        mConnectedThread.write(message);
+                        setArduinoTxt(message);
                     } catch (Exception e) {
+                        message = createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
+                        setArduinoTxt(message);
                         e.printStackTrace();
                     }
                 } else if (!isSnackBarShown) {
@@ -615,7 +620,38 @@ public class MainActivity extends AppCompatActivity
             }
         });
     }
+
     //endregion
+    public String createSendingMessage(float angle, float distance, float y, float maxDistance) {
+        double l = 0, r = 0;
+        String value = "";
+        if (angle == 0) {
+            l = distance;
+        } else if (angle == 180) {
+            l = distance;
+            r = l;
+        } else if (angle <= 90 || angle >= 270) {
+            r = Math.sqrt(Math.pow(distance, 2) / (1 + (1 / Math.pow(Math.sin(Math.toRadians(angle)), 2))));
+            l = Math.sqrt(1 / Math.pow(Math.sin(Math.toRadians(angle)), 2)) * r;
+        } else {
+            l = Math.sqrt(Math.pow(distance, 2) / (1 + (1 / Math.pow(Math.sin(Math.toRadians(angle)), 2))));
+            r = Math.sqrt(1 / Math.pow(Math.sin(Math.toRadians(angle)), 2)) * l;
+        }
+        int offset = 127;
+        l = Math.ceil(127 * l / maxDistance);
+        r = Math.ceil(127 * r / maxDistance);
+        if (y > 0) {
+            r = offset - Math.ceil(63 * r / 127);
+            l = offset - Math.ceil(63 * l / 127);
+        }
+        else {
+            r = offset + r;
+            l = offset + l;
+        }
+        value = String.format(Locale.ENGLISH, "%03d", (int) l) + String.format(Locale.ENGLISH, "%03d", (int) r);
+        return value;
+    }
+
     public void setArduinoTxt(String text) {
         arduinoTxt.setText(text);
     }
