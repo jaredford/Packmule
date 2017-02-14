@@ -623,7 +623,7 @@ public class MainActivity extends AppCompatActivity
 
     //endregion
     public String createSendingMessage(float angle, float distance, float y, float maxDistance) {
-        double l = 0, r = 0;
+        double l, r=0;
         String value = "";
         if (angle == 0) {
             l = distance;
@@ -648,7 +648,7 @@ public class MainActivity extends AppCompatActivity
             r = offset + r;
             l = offset + l;
         }
-        value = String.format(Locale.ENGLISH, "%03d", (int) l) + String.format(Locale.ENGLISH, "%03d", (int) r);
+        value = String.format(Locale.ENGLISH, "%03d", (int) l) + String.format(Locale.ENGLISH, "%03d", (int) r) + "\n";
         return value;
     }
 
