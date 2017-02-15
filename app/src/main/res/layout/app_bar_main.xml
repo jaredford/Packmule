@@ -24,6 +24,16 @@
     <include
         android:id="@+id/include"
         layout="@layout/content_main" />
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/horn"
+        android:layout_width="58dp"
+        android:layout_height="71dp"
+        android:layout_gravity=""
+        android:layout_margin="@dimen/fab_margin"
+        android:visibility="visible"
+        app:layout_anchor="@+id/include"
+        app:layout_anchorGravity="bottom|left"
+        app:srcCompat="@android:drawable/ic_lock_silent_mode_off" />
 
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/fab"

@@ -77,6 +77,18 @@ public class MainActivity extends AppCompatActivity
         IntentFilter bondFilter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         registerReceiver(mBondReceiver, bondFilter);
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        FloatingActionButton horn = (FloatingActionButton) findViewById(R.id.horn);
+        horn.setVisibility(View.INVISIBLE);
+        horn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                try {
+                    mConnectedThread.write("h\n");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -247,10 +259,12 @@ public class MainActivity extends AppCompatActivity
     public void onResume() {
         super.onResume();
         final FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        final FloatingActionButton horn = (FloatingActionButton) findViewById(R.id.horn);
         if (mBluetoothAdapter == null)
             return;
         if (!mBluetoothAdapter.isEnabled()) {
             fab.setVisibility(View.VISIBLE);
+            horn.setVisibility(View.INVISIBLE);
         } else {
             new Thread(new Runnable() {
                 @Override
@@ -283,6 +297,7 @@ public class MainActivity extends AppCompatActivity
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
+                                    horn.setVisibility(View.VISIBLE);
                                     fab.setVisibility(View.INVISIBLE);
                                 }
                             });
@@ -462,6 +477,7 @@ public class MainActivity extends AppCompatActivity
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
             FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+            FloatingActionButton horn = (FloatingActionButton) findViewById(R.id.horn);
             if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
                 final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
                         BluetoothAdapter.ERROR);
@@ -469,6 +485,7 @@ public class MainActivity extends AppCompatActivity
                     case BluetoothAdapter.STATE_OFF:
                     case BluetoothAdapter.STATE_TURNING_OFF:
                         fab.setVisibility(View.VISIBLE);
+                        horn.setVisibility(View.INVISIBLE);
                         break;
                     case BluetoothAdapter.STATE_ON:
                         break;
@@ -502,6 +519,7 @@ public class MainActivity extends AppCompatActivity
             String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
             String action = intent.getAction();
             FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+            FloatingActionButton horn = (FloatingActionButton) findViewById(R.id.horn);
             if (action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)) {
                 // Discovery has found a device. Get the BluetoothDevice
                 // object and its info from the Intent.
@@ -511,9 +529,11 @@ public class MainActivity extends AppCompatActivity
                     switch (state) {
                         case BluetoothDevice.BOND_NONE:
                             fab.setVisibility(View.VISIBLE);
+                            horn.setVisibility(View.INVISIBLE);
                             break;
                         case BluetoothDevice.BOND_BONDED:
                             fab.setVisibility(View.INVISIBLE);
+                            horn.setVisibility(View.VISIBLE);
                             showToast("Connected to " + muleName + "!");
                             break;
                         default:
@@ -555,7 +575,7 @@ public class MainActivity extends AppCompatActivity
                 String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
                 if (manualMode) {
                     js.drawStick(arg1);
-                    String message = "";
+                    String message;
                     try {
                         if (arg1.getAction() == MotionEvent.ACTION_DOWN
                                 || arg1.getAction() == MotionEvent.ACTION_MOVE) {
