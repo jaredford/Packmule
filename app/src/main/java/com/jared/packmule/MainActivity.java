@@ -34,20 +34,19 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
-import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
 @SuppressWarnings("deprecation")
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
+    private Utilities utilities;
     private final static int RECEIVE_MESSAGE = 123;
     private final static StringBuilder sb = new StringBuilder();
     private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
@@ -56,63 +55,105 @@ public class MainActivity extends AppCompatActivity
     private final String MAC = "98:D3:35:00:AA:83";
     private final int REQUEST_ENABLE_BT = 101;
     private final int REQUEST_COARSE_LOCATION = 404;
-    private final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
     private ConnectedThread mConnectedThread;
     private TextView directionText;
     private Boolean isSnackBarShown = false;
     private BluetoothSocket mBluetoothSocket = null;
     TextView arduinoTxt;
+    RelativeLayout layout_joystick;
+    FloatingActionButton fab, horn, connect;
 
+    //region Application States
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        layout_joystick = (RelativeLayout) findViewById(R.id.layout_joystick);
         arduinoTxt = (TextView) findViewById(R.id.arduinoTxt);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        IntentFilter btFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-        registerReceiver(mStateReceiver, btFilter);
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        registerReceiver(mReceiver, filter);
-        IntentFilter bondFilter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
-        registerReceiver(mBondReceiver, bondFilter);
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        FloatingActionButton horn = (FloatingActionButton) findViewById(R.id.horn);
-        horn.setVisibility(View.INVISIBLE);
-        horn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                try {
-                    mConnectedThread.write("h\n");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (mBluetoothAdapter == null)
-                    return;
-                if (!mBluetoothAdapter.isEnabled()) {
-                    turnOnBluetooth();
-                } else {
-                    packmuleConnect();
-                }
-            }
-        });
-
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
-                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
-        drawer.setDrawerListener(toggle);
-        toggle.syncState();
-
-        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
-        navigationView.setNavigationItemSelectedListener(this);
+        initializeFabs();
+        initializeNavigation();
+        initializeReceivers();
         setupJoyStick();
+        utilities = new Utilities(getApplicationContext(), fab, horn, connect, arduinoTxt, layout_joystick);
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(mReceiver);
+        unregisterReceiver(mStateReceiver);
+        unregisterReceiver(mBondReceiver);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (utilities.mBluetoothAdapter == null)
+            return;
+        if (!utilities.mBluetoothAdapter.isEnabled()) {
+            utilities.disablePackmuleInputs(true);
+        } else {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    // Set up a pointer to the remote node using it's address.
+                    BluetoothDevice device = utilities.mBluetoothAdapter.getRemoteDevice(MAC);
+
+                    // Two things are needed to make a connection:
+                    //   A MAC address, which we got above.
+                    //   A Service ID or UUID.  In this case we are using the
+                    //     UUID for SPP.
+
+                    try {
+                        mBluetoothSocket = createBluetoothSocket(device);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+                    // Discovery is resource intensive.  Make sure it isn't going on
+                    // when you attempt to connect and pass your message.
+                    utilities.mBluetoothAdapter.cancelDiscovery();
+
+                    // Establish the connection.  This will block until it connects.
+                    try {
+                        if (mBluetoothSocket != null) {
+                            mBluetoothSocket.connect();
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    utilities.disablePackmuleInputs(false);
+                                }
+                            });
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        try {
+                            mBluetoothSocket.close();
+                        } catch (Exception e2) {
+                            e2.printStackTrace();
+                        }
+                    }
+
+                    // Create a data stream so we can talk to server.
+                    mConnectedThread = new ConnectedThread(mBluetoothSocket);
+                    mConnectedThread.start();
+                }
+            }).start();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        try {
+            mBluetoothSocket.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    //endregion
+
+    //region Permissions
     protected void checkLocationPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -121,7 +162,7 @@ public class MainActivity extends AppCompatActivity
                     new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
                     REQUEST_COARSE_LOCATION);
         } else {
-            mBluetoothAdapter.startDiscovery();
+            utilities.mBluetoothAdapter.startDiscovery();
         }
     }
 
@@ -132,7 +173,7 @@ public class MainActivity extends AppCompatActivity
             case REQUEST_COARSE_LOCATION: {
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    mBluetoothAdapter.startDiscovery();
+                    utilities.mBluetoothAdapter.startDiscovery();
                 } else {
                     packmuleConnect();
                 }
@@ -140,7 +181,9 @@ public class MainActivity extends AppCompatActivity
             }
         }
     }
+    //endregion
 
+    //region Bluetooth Functions
     private void turnOnBluetooth() {
         new Thread(new Runnable() {
             @Override
@@ -156,7 +199,7 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void run() {
                 Boolean pairedWithPackmule = false;
-                Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+                Set<BluetoothDevice> pairedDevices = utilities.mBluetoothAdapter.getBondedDevices();
                 if (pairedDevices.size() > 0) {
                     // There are paired devices. Get the name and address of each paired device.
                     for (BluetoothDevice device : pairedDevices) {
@@ -169,7 +212,7 @@ public class MainActivity extends AppCompatActivity
                 }
                 if (!pairedWithPackmule) {
                     checkLocationPermission();
-                    mBluetoothAdapter.startDiscovery();
+                    utilities.mBluetoothAdapter.startDiscovery();
                 }
             }
         }).start();
@@ -185,162 +228,8 @@ public class MainActivity extends AppCompatActivity
         return device.createInsecureRfcommSocketToServiceRecord(MY_UUID);
     }
 
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        // Check which request we're responding to
-        if (requestCode == REQUEST_ENABLE_BT) {
-            if (resultCode == RESULT_CANCELED) {
-                showToast("Error enabling bluetooth!");
-            }
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-        if (drawer.isDrawerOpen(GravityCompat.START)) {
-            drawer.closeDrawer(GravityCompat.START);
-        } else {
-            super.onBackPressed();
-        }
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.main, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            Intent i = new Intent(this, SettingsActivity.class);
-            i.putExtra(PreferenceActivity.EXTRA_SHOW_FRAGMENT, SettingsActivity.GeneralPreferenceFragment.class.getName());
-            i.putExtra(PreferenceActivity.EXTRA_NO_HEADERS, true);
-            startActivity(i);
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
-    }
-
-    @SuppressWarnings("StatementWithEmptyBody")
-    @Override
-    public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-        // Handle navigation view item clicks here.
-        int id = item.getItemId();
-
-        if (id == R.id.nav_home) {
-
-        }
-
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-        drawer.closeDrawer(GravityCompat.START);
-        return true;
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        unregisterReceiver(mReceiver);
-        unregisterReceiver(mStateReceiver);
-        unregisterReceiver(mBondReceiver);
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        final FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        final FloatingActionButton horn = (FloatingActionButton) findViewById(R.id.horn);
-        if (mBluetoothAdapter == null)
-            return;
-        if (!mBluetoothAdapter.isEnabled()) {
-            fab.setVisibility(View.VISIBLE);
-            horn.setVisibility(View.INVISIBLE);
-        } else {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    Log.d(TAG, "...onResume - try connect...");
-
-                    // Set up a pointer to the remote node using it's address.
-                    BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(MAC);
-
-                    // Two things are needed to make a connection:
-                    //   A MAC address, which we got above.
-                    //   A Service ID or UUID.  In this case we are using the
-                    //     UUID for SPP.
-
-                    try {
-                        mBluetoothSocket = createBluetoothSocket(device);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-
-                    // Discovery is resource intensive.  Make sure it isn't going on
-                    // when you attempt to connect and pass your message.
-                    mBluetoothAdapter.cancelDiscovery();
-
-                    // Establish the connection.  This will block until it connects.
-                    Log.d(TAG, "...Connecting...");
-                    try {
-                        if (mBluetoothSocket != null) {
-                            mBluetoothSocket.connect();
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    horn.setVisibility(View.VISIBLE);
-                                    fab.setVisibility(View.INVISIBLE);
-                                }
-                            });
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        try {
-                            mBluetoothSocket.close();
-                        } catch (Exception e2) {
-                            e2.printStackTrace();
-                        }
-                    }
-
-                    // Create a data stream so we can talk to server.
-                    Log.d(TAG, "...Create Socket...");
-
-                    mConnectedThread = new ConnectedThread(mBluetoothSocket);
-                    mConnectedThread.start();
-                }
-            }).start();
-        }
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-
-        Log.d(TAG, "...In onPause()...");
-
-        try {
-            mBluetoothSocket.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void showToast(String text) {
-        Toast.makeText(MainActivity.this, text, Toast.LENGTH_SHORT).show();
-    }
-
     public static class MyHandler extends Handler {
         private final WeakReference<MainActivity> mActivity;
-
         private MyHandler(MainActivity activity) {
             mActivity = new WeakReference<>(activity);
         }
@@ -358,7 +247,7 @@ public class MainActivity extends AppCompatActivity
                         if (endOfLineIndex > 0) {
                             String sbprint = sb.substring(0, endOfLineIndex);
                             sb.delete(0, sb.length());
-                            activity.setArduinoTxt(sbprint);
+                            activity.utilities.setArduinoTxt(sbprint);
                         }
                         break;
                 }
@@ -388,7 +277,7 @@ public class MainActivity extends AppCompatActivity
 
         public void run() {
             // Cancel discovery because it otherwise slows down the connection.
-            mBluetoothAdapter.cancelDiscovery();
+            utilities.mBluetoothAdapter.cancelDiscovery();
 
             try {
                 // Connect to the remote device through the socket. This call blocks
@@ -403,7 +292,6 @@ public class MainActivity extends AppCompatActivity
                 }
                 return;
             }
-
             // The connection attempt succeeded. Perform work associated with
             // the connection in a separate thread.
             bindToConnectedThread(mmSocket);
@@ -471,85 +359,12 @@ public class MainActivity extends AppCompatActivity
             }
         }
     }
-
-    private final BroadcastReceiver mStateReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-            FloatingActionButton horn = (FloatingActionButton) findViewById(R.id.horn);
-            if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
-                final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
-                        BluetoothAdapter.ERROR);
-                switch (state) {
-                    case BluetoothAdapter.STATE_OFF:
-                    case BluetoothAdapter.STATE_TURNING_OFF:
-                        fab.setVisibility(View.VISIBLE);
-                        horn.setVisibility(View.INVISIBLE);
-                        break;
-                    case BluetoothAdapter.STATE_ON:
-                        break;
-                    case BluetoothAdapter.STATE_TURNING_ON:
-                        break;
-                }
-            }
-        }
-    };
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-            String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
-            String action = intent.getAction();
-            if (action.equals(BluetoothDevice.ACTION_FOUND)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (device.getAddress().equals(MAC)) {
-                    mBluetoothAdapter.cancelDiscovery();
-                    Toast.makeText(MainActivity.this, "Found " + muleName, Toast.LENGTH_SHORT).show();
-                    ConnectThread connectThread = new ConnectThread(device);
-                    connectThread.start();
-                }
-            }
-        }
-    };
-    private final BroadcastReceiver mBondReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-            String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
-            String action = intent.getAction();
-            FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-            FloatingActionButton horn = (FloatingActionButton) findViewById(R.id.horn);
-            if (action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (device.getAddress().equals(MAC)) {
-                    final int state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR);
-                    switch (state) {
-                        case BluetoothDevice.BOND_NONE:
-                            fab.setVisibility(View.VISIBLE);
-                            horn.setVisibility(View.INVISIBLE);
-                            break;
-                        case BluetoothDevice.BOND_BONDED:
-                            fab.setVisibility(View.INVISIBLE);
-                            horn.setVisibility(View.VISIBLE);
-                            showToast("Connected to " + muleName + "!");
-                            break;
-                        default:
-                            break;
-                    }
-                }
-            }
-        }
-    };
+    //endregion
 
     //region Joystick
     public void setupJoyStick() {
         directionText = (TextView) findViewById(R.id.directionText);
         Button buttonStop = (Button) findViewById(R.id.button_stop);
-        RelativeLayout layout_joystick = (RelativeLayout) findViewById(R.id.layout_joystick);
-
         final JoyStick js = new JoyStick(getApplicationContext(), layout_joystick);
         float density = getResources().getDisplayMetrics().density;
         js.setStickSize(density);
@@ -573,6 +388,9 @@ public class MainActivity extends AppCompatActivity
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
                 boolean manualMode = prefs.getBoolean("manual_mode", true);
                 String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
+                if (!utilities.inputsEnabled) {
+                    return true;
+                }
                 if (manualMode) {
                     js.drawStick(arg1);
                     String message;
@@ -602,12 +420,12 @@ public class MainActivity extends AppCompatActivity
                         } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
                             directionText.setText(getResources().getString(R.string.stopped));
                         }
-                        message = createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
+                        message = utilities.createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
                         mConnectedThread.write(message);
-                        setArduinoTxt(message);
+                        utilities.setArduinoTxt(message);
                     } catch (Exception e) {
-                        message = createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
-                        setArduinoTxt(message);
+                        message = utilities.createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
+                        utilities.setArduinoTxt(message);
                         e.printStackTrace();
                     }
                 } else if (!isSnackBarShown) {
@@ -642,37 +460,191 @@ public class MainActivity extends AppCompatActivity
     }
 
     //endregion
-    public String createSendingMessage(float angle, float distance, float y, float maxDistance) {
-        double l, r=0;
-        String value = "";
-        if (angle == 0) {
-            l = distance;
-        } else if (angle == 180) {
-            l = distance;
-            r = l;
-        } else if (angle <= 90 || angle >= 270) {
-            r = Math.sqrt(Math.pow(distance, 2) / (1 + (1 / Math.pow(Math.sin(Math.toRadians(angle)), 2))));
-            l = Math.sqrt(1 / Math.pow(Math.sin(Math.toRadians(angle)), 2)) * r;
-        } else {
-            l = Math.sqrt(Math.pow(distance, 2) / (1 + (1 / Math.pow(Math.sin(Math.toRadians(angle)), 2))));
-            r = Math.sqrt(1 / Math.pow(Math.sin(Math.toRadians(angle)), 2)) * l;
-        }
-        int offset = 127;
-        l = Math.ceil(127 * l / maxDistance);
-        r = Math.ceil(127 * r / maxDistance);
-        if (y > 0) {
-            r = offset - Math.ceil(63 * r / 127);
-            l = offset - Math.ceil(63 * l / 127);
-        }
-        else {
-            r = offset + r;
-            l = offset + l;
-        }
-        value = String.format(Locale.ENGLISH, "%03d", (int) l) + String.format(Locale.ENGLISH, "%03d", (int) r) + "\n";
-        return value;
+
+    //region Floating Action Buttons
+    private void initializeFabs() {
+        fab = (FloatingActionButton) findViewById(R.id.fab);
+        horn = (FloatingActionButton) findViewById(R.id.horn);
+        connect = (FloatingActionButton) findViewById(R.id.connect);
+        horn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                try {
+                    mConnectedThread.write("h\n");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (utilities.mBluetoothAdapter == null)
+                    return;
+                if (!utilities.mBluetoothAdapter.isEnabled()) {
+                    turnOnBluetooth();
+                }
+            }
+        });
+        connect.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                packmuleConnect();
+            }
+        });
+    }
+    //endregion
+
+    //region Navigation
+    private void initializeNavigation() {
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
+                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+        drawer.setDrawerListener(toggle);
+        toggle.syncState();
+        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        navigationView.setNavigationItemSelectedListener(this);
     }
 
-    public void setArduinoTxt(String text) {
-        arduinoTxt.setText(text);
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // Check which request we're responding to
+        if (requestCode == REQUEST_ENABLE_BT) {
+            if (resultCode == RESULT_CANCELED) {
+                utilities.showToast("Error enabling bluetooth!");
+            }
+        }
     }
+
+    @Override
+    public void onBackPressed() {
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        if (drawer.isDrawerOpen(GravityCompat.START)) {
+            drawer.closeDrawer(GravityCompat.START);
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        //noinspection SimplifiableIfStatement
+        if (id == R.id.action_settings) {
+            Intent i = new Intent(this, SettingsActivity.class);
+            i.putExtra(PreferenceActivity.EXTRA_SHOW_FRAGMENT, SettingsActivity.GeneralPreferenceFragment.class.getName());
+            i.putExtra(PreferenceActivity.EXTRA_NO_HEADERS, true);
+            startActivity(i);
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    @SuppressWarnings("StatementWithEmptyBody")
+    @Override
+    public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+        // Handle navigation view item clicks here.
+        int id = item.getItemId();
+
+        if (id == R.id.nav_home) {
+
+        }
+
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        drawer.closeDrawer(GravityCompat.START);
+        return true;
+    }
+    //endregion
+
+    //region Bluetooth Receivers
+    private void initializeReceivers() {
+        IntentFilter btFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        registerReceiver(mStateReceiver, btFilter);
+        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        registerReceiver(mReceiver, filter);
+        IntentFilter bondFilter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+        registerReceiver(mBondReceiver, bondFilter);
+    }
+
+    private final BroadcastReceiver mStateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+            if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
+                final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
+                        BluetoothAdapter.ERROR);
+                switch (state) {
+                    case BluetoothAdapter.STATE_OFF:
+                    case BluetoothAdapter.STATE_TURNING_OFF:
+                        utilities.disablePackmuleInputs(true);
+                        break;
+                    case BluetoothAdapter.STATE_ON:
+                        utilities.setDisconnectedState();
+                        break;
+                    case BluetoothAdapter.STATE_TURNING_ON:
+                        break;
+                }
+            }
+        }
+    };
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+            String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
+            String action = intent.getAction();
+            if (action.equals(BluetoothDevice.ACTION_FOUND)) {
+                // Discovery has found a device. Get the BluetoothDevice
+                // object and its info from the Intent.
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if (device.getAddress().equals(MAC)) {
+                    utilities.mBluetoothAdapter.cancelDiscovery();
+                    utilities.showToast("Found " + muleName);
+                    ConnectThread connectThread = new ConnectThread(device);
+                    connectThread.start();
+                }
+            }
+        }
+    };
+    private final BroadcastReceiver mBondReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+            String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
+            String action = intent.getAction();
+            if (action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)) {
+                // Discovery has found a device. Get the BluetoothDevice
+                // object and its info from the Intent.
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if (device.getAddress().equals(MAC)) {
+                    final int state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR);
+                    switch (state) {
+                        case BluetoothDevice.BOND_NONE:
+                            utilities.disablePackmuleInputs(true);
+                            break;
+                        case BluetoothDevice.BOND_BONDED:
+                            utilities.disablePackmuleInputs(false);
+                            utilities.showToast("Connected to " + muleName + "!");
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+        }
+    };
+    //endregion
 }
