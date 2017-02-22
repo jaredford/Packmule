@@ -2,6 +2,8 @@ package com.jared.packmule;
 
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -92,6 +94,29 @@ public class Utilities extends AppCompatActivity {
             l = offset + l;
         }
         value = String.format(Locale.ENGLISH, "%03d", (int) l) + String.format(Locale.ENGLISH, "%03d", (int) r) + "\n";
+        return value;
+    }
+
+    public String createSendingMessageTankStyle(float angle, float y, float distance, float maxDistance) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        int maxSpeed = Integer.parseInt(prefs.getString("speed_scale", "3"));
+        String value;
+        double speed, direction;
+        speed = distance > maxDistance ? maxDistance : distance;
+        float a = angle;
+        angle = angle < 180 ? (180 - angle) : (angle - 180);
+        // scale back both speed and direction so the fall between -127 and 127
+        speed = Math.ceil(speed * 127 * maxSpeed / (maxDistance * 5));
+        direction = Math.ceil((angle) * 254 / 180);
+        // if y is greater than 0, we know we are going reverse direction
+        // since bitmaps use a reverse coordinate system
+        if (y > 0) {
+            speed *= -1;
+        }
+        // add 127 to speed, so we don't send any negative numbers!
+        speed += 127;
+        direction = speed == 127 ? 127 : direction;
+        value = String.format(Locale.ENGLISH, "%03d", (int) speed) + String.format(Locale.ENGLISH, "%03d", (int) direction) + "\n";
         return value;
     }
 

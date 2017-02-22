@@ -162,7 +162,8 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             // updated to reflect the new value, per the Android Design
             // guidelines.
             bindPreferenceSummaryToValue(findPreference("packmule_name"));
-//            bindPreferenceSummaryToValue(findPreference("example_list"));
+            bindPreferenceSummaryToValue(findPreference("speed_scale"));
+            //  bindPreferenceSummaryToValue(findPreference("example_list"));
         }
 
         @Override

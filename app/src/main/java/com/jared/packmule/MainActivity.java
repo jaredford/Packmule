@@ -420,11 +420,13 @@ public class MainActivity extends AppCompatActivity
                         } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
                             directionText.setText(getResources().getString(R.string.stopped));
                         }
-                        message = utilities.createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
+                        //message = utilities.createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
+                        message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getParams().width / 2);
                         mConnectedThread.write(message);
                         utilities.setArduinoTxt(message);
                     } catch (Exception e) {
-                        message = utilities.createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
+                        //message = utilities.createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
+                        message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getParams().width / 2);
                         utilities.setArduinoTxt(message);
                         e.printStackTrace();
                     }

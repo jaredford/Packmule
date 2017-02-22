@@ -17,6 +17,17 @@
         android:selectAllOnFocus="true"
         android:singleLine="true"
         android:title="@string/pref_title_display_name" />
+    <EditTextPreference
+        android:defaultValue="@string/pref_default_speed"
+        android:inputType="number"
+        android:key="speed_scale"
+        android:maxLines="1"
+        android:id="@+id/speed"
+        android:digits="1,2,3,4,5"
+        android:maxLength="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:title="@string/pref_title_speed" />
 
     <!-- NOTE: Hide buttons to simplify the UI. Users can touch outside the dialog to
          dismiss it. -->

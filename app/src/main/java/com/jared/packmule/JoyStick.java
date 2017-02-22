@@ -129,7 +129,7 @@ class JoyStick extends AppCompatActivity {
     }
 
     void setMinimumDistance() {
-        min_distance = 50;
+        min_distance = 35;
     }
 
     int get8Direction() {

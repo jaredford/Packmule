@@ -27,6 +27,8 @@
     <string name="pref_title_manual_mode">Enable manual mode</string>
     <string name="pref_description_manual_mode">Allow this application to directly control the packmule
     </string>
+    <string name="pref_title_speed">Max Speed (1–5)</string>
+    <string name="pref_default_speed">3</string>
 
     <string name="pref_title_display_name">Name your packmule</string>
     <string name="pref_default_display_name">Packmule</string>
