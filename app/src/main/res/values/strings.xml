@@ -32,6 +32,7 @@
 
     <string name="pref_title_display_name">Name your packmule</string>
     <string name="pref_default_display_name">Packmule</string>
+    <string name="settings">Settings</string>
 
     <!--<string name="pref_title_add_friends_to_messages">Add friends to messages</string>
     <string-array name="pref_example_list_titles">

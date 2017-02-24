@@ -6,8 +6,11 @@ import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.view.animation.LinearOutSlowInInterpolator;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.RotateAnimation;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -50,6 +53,17 @@ public class Utilities extends AppCompatActivity {
         horn.setVisibility(View.INVISIBLE);
         connect.setVisibility(View.VISIBLE);
         inputsEnabled = false;
+        rotateConnectFab();
+    }
+
+    private void rotateConnectFab() {
+        RotateAnimation rotateAnimation = new RotateAnimation(0, 360, Animation.RELATIVE_TO_SELF,
+                .5f, Animation.RELATIVE_TO_SELF, .5f);
+        rotateAnimation.setRepeatMode(Animation.RESTART);
+        rotateAnimation.setDuration(1750);
+        rotateAnimation.setRepeatCount(Animation.INFINITE);
+        rotateAnimation.setInterpolator(new LinearOutSlowInInterpolator());
+        connect.startAnimation(rotateAnimation);
     }
 
     public void disablePackmuleInputs(boolean disable) {
@@ -57,15 +71,13 @@ public class Utilities extends AppCompatActivity {
             js.setBackground(ContextCompat.getDrawable(context, R.drawable.image_button_bg_disabled));
             fab.setVisibility(View.VISIBLE);
             horn.setVisibility(View.INVISIBLE);
-            connect.setVisibility(View.INVISIBLE);
-            inputsEnabled = false;
         } else {
             js.setBackground(ContextCompat.getDrawable(context, R.drawable.image_button_bg));
             fab.setVisibility(View.INVISIBLE);
             horn.setVisibility(View.VISIBLE);
-            connect.setVisibility(View.INVISIBLE);
-            inputsEnabled = true;
         }
+        inputsEnabled = !disable;
+        connect.setVisibility(View.INVISIBLE);
     }
 
     public String createSendingMessage(float angle, float distance, float y, float maxDistance) {
@@ -103,7 +115,6 @@ public class Utilities extends AppCompatActivity {
         String value;
         double speed, direction;
         speed = distance > maxDistance ? maxDistance : distance;
-        float a = angle;
         angle = angle < 180 ? (180 - angle) : (angle - 180);
         // scale back both speed and direction so the fall between -127 and 127
         speed = Math.ceil(speed * 127 * maxSpeed / (maxDistance * 5));

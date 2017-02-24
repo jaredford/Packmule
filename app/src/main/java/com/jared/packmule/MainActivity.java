@@ -544,16 +544,6 @@ public class MainActivity extends AppCompatActivity
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            Intent i = new Intent(this, SettingsActivity.class);
-            i.putExtra(PreferenceActivity.EXTRA_SHOW_FRAGMENT, SettingsActivity.GeneralPreferenceFragment.class.getName());
-            i.putExtra(PreferenceActivity.EXTRA_NO_HEADERS, true);
-            startActivity(i);
-            return true;
-        }
-
         return super.onOptionsItemSelected(item);
     }
 
@@ -561,10 +551,17 @@ public class MainActivity extends AppCompatActivity
     @Override
     public boolean onNavigationItemSelected(@NonNull MenuItem item) {
         // Handle navigation view item clicks here.
+        if (item.isChecked()) {
+            return false;
+        }
         int id = item.getItemId();
-
-        if (id == R.id.nav_home) {
-
+        item.setChecked(true);
+        if (id == R.id.nav_settings) {
+            Intent i = new Intent(this, SettingsActivity.class);
+            i.putExtra(PreferenceActivity.EXTRA_SHOW_FRAGMENT, SettingsActivity.GeneralPreferenceFragment.class.getName());
+            i.putExtra(PreferenceActivity.EXTRA_NO_HEADERS, true);
+            startActivity(i);
+            return true;
         }
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
