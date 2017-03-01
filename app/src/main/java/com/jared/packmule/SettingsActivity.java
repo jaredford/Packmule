@@ -118,7 +118,6 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         }
         return super.onMenuItemSelected(featureId, item);
     }
-
     /**
      * {@inheritDoc}
      */

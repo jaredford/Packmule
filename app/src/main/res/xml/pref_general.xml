@@ -6,6 +6,12 @@
         android:summary="@string/pref_description_manual_mode"
         android:title="@string/pref_title_manual_mode" />
 
+    <SwitchPreference
+        android:defaultValue="false"
+        android:key="test_mode"
+        android:summary="@string/pref_description_test_mode"
+        android:title="@string/pref_title_test_mode" />
+
     <!-- NOTE: EditTextPreference accepts EditText attributes. -->
     <!-- NOTE: EditTextPreference's summary should be set to its value by the activity code. -->
     <EditTextPreference
@@ -18,13 +24,13 @@
         android:singleLine="true"
         android:title="@string/pref_title_display_name" />
     <EditTextPreference
+        android:id="@+id/speed"
         android:defaultValue="@string/pref_default_speed"
+        android:digits="1,2,3,4,5"
         android:inputType="number"
         android:key="speed_scale"
-        android:maxLines="1"
-        android:id="@+id/speed"
-        android:digits="1,2,3,4,5"
         android:maxLength="1"
+        android:maxLines="1"
         android:selectAllOnFocus="true"
         android:singleLine="true"
         android:title="@string/pref_title_speed" />

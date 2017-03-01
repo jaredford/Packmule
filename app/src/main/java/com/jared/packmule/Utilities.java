@@ -67,7 +67,9 @@ public class Utilities extends AppCompatActivity {
     }
 
     public void disablePackmuleInputs(boolean disable) {
-        if (disable) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        Boolean testMode = prefs.getBoolean("test_mode", false);
+        if (disable && !testMode) {
             js.setBackground(ContextCompat.getDrawable(context, R.drawable.image_button_bg_disabled));
             fab.setVisibility(View.VISIBLE);
             horn.setVisibility(View.INVISIBLE);
@@ -76,7 +78,7 @@ public class Utilities extends AppCompatActivity {
             fab.setVisibility(View.INVISIBLE);
             horn.setVisibility(View.VISIBLE);
         }
-        inputsEnabled = !disable;
+        inputsEnabled = !disable || testMode;
         connect.setVisibility(View.INVISIBLE);
     }
 
@@ -116,16 +118,18 @@ public class Utilities extends AppCompatActivity {
         double speed, direction;
         speed = distance > maxDistance ? maxDistance : distance;
         angle = angle < 180 ? (180 - angle) : (angle - 180);
+        angle -= 90;
         // scale back both speed and direction so the fall between -127 and 127
         speed = Math.ceil(speed * 127 * maxSpeed / (maxDistance * 5));
-        direction = Math.ceil((angle) * 254 / 180);
+        direction = Math.ceil((angle) * 127 * maxSpeed / (90 * 5));
         // if y is greater than 0, we know we are going reverse direction
         // since bitmaps use a reverse coordinate system
         if (y > 0) {
             speed *= -1;
         }
-        // add 127 to speed, so we don't send any negative numbers!
+        // add 127 to speed and direction, so we don't send any negative numbers!
         speed += 127;
+        direction += 127;
         direction = speed == 127 ? 127 : direction;
         value = String.format(Locale.ENGLISH, "%03d", (int) speed) + String.format(Locale.ENGLISH, "%03d", (int) direction) + "\n";
         return value;
