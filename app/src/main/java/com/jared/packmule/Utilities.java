@@ -24,6 +24,8 @@ public class Utilities extends AppCompatActivity {
     FloatingActionButton fab, horn, connect;
     RelativeLayout js;
     Context context;
+    RotateAnimation rotateAnimation = new RotateAnimation(0, 360, Animation.RELATIVE_TO_SELF,
+            .5f, Animation.RELATIVE_TO_SELF, .5f);
     public Boolean inputsEnabled = true;
 
     public Utilities(Context context, FloatingActionButton fab, FloatingActionButton horn,
@@ -57,8 +59,6 @@ public class Utilities extends AppCompatActivity {
     }
 
     private void rotateConnectFab() {
-        RotateAnimation rotateAnimation = new RotateAnimation(0, 360, Animation.RELATIVE_TO_SELF,
-                .5f, Animation.RELATIVE_TO_SELF, .5f);
         rotateAnimation.setRepeatMode(Animation.RESTART);
         rotateAnimation.setDuration(1750);
         rotateAnimation.setRepeatCount(Animation.INFINITE);
@@ -76,10 +76,11 @@ public class Utilities extends AppCompatActivity {
         } else {
             js.setBackground(ContextCompat.getDrawable(context, R.drawable.image_button_bg));
             fab.setVisibility(View.INVISIBLE);
+            rotateAnimation.cancel();
+            connect.setVisibility(View.INVISIBLE);
             horn.setVisibility(View.VISIBLE);
         }
         inputsEnabled = !disable || testMode;
-        connect.setVisibility(View.INVISIBLE);
     }
 
     public String createSendingMessage(float angle, float distance, float y, float maxDistance) {
@@ -120,8 +121,8 @@ public class Utilities extends AppCompatActivity {
         angle = angle < 180 ? (180 - angle) : (angle - 180);
         angle -= 90;
         // scale back both speed and direction so the fall between -127 and 127
-        speed = Math.ceil(speed * 127 * maxSpeed / (maxDistance * 5));
-        direction = Math.ceil((angle) * 127 * maxSpeed / (90 * 5));
+        speed = Math.ceil(speed * 127 * maxSpeed / (maxDistance * 100));
+        direction = Math.ceil((angle) * 127 * maxSpeed / (90 * 100));
         // if y is greater than 0, we know we are going reverse direction
         // since bitmaps use a reverse coordinate system
         if (y > 0) {

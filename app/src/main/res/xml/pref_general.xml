@@ -26,10 +26,10 @@
     <EditTextPreference
         android:id="@+id/speed"
         android:defaultValue="@string/pref_default_speed"
-        android:digits="1,2,3,4,5"
-        android:inputType="number"
+        android:digits="1,2,3,4,5,6,7,8,9,0,."
+        android:inputType="numberDecimal"
         android:key="speed_scale"
-        android:maxLength="1"
+        android:maxLength="4"
         android:maxLines="1"
         android:selectAllOnFocus="true"
         android:singleLine="true"

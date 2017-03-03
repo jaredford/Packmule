@@ -30,8 +30,8 @@
     <string name="pref_title_test_mode">Enter test mode</string>
     <string name="pref_description_test_mode">Test the app by simulating connected state
     </string>
-    <string name="pref_title_speed">Max Speed (1–5)</string>
-    <string name="pref_default_speed">3</string>
+    <string name="pref_title_speed">Max Speed</string>
+    <string name="pref_default_speed">25</string>
 
     <string name="pref_title_display_name">Name your packmule</string>
     <string name="pref_default_display_name">Packmule</string>

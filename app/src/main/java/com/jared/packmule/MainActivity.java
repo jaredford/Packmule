@@ -294,6 +294,7 @@ public class MainActivity extends AppCompatActivity
             }
             // The connection attempt succeeded. Perform work associated with
             // the connection in a separate thread.
+            utilities.disablePackmuleInputs(false);
             bindToConnectedThread(mmSocket);
         }
 
@@ -377,7 +378,8 @@ public class MainActivity extends AppCompatActivity
             public void onClick(View v) {
                 directionText.setText(getResources().getString(R.string.stopped));
                 try {
-                    mConnectedThread.write(JoyStick.STICK_NONE + "");
+                    utilities.setArduinoTxt("127127\n");
+                    mConnectedThread.write("127127\n");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -551,11 +553,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     public boolean onNavigationItemSelected(@NonNull MenuItem item) {
         // Handle navigation view item clicks here.
-        if (item.isChecked()) {
-            return false;
-        }
         int id = item.getItemId();
-        item.setChecked(true);
         if (id == R.id.nav_settings) {
             Intent i = new Intent(this, SettingsActivity.class);
             i.putExtra(PreferenceActivity.EXTRA_SHOW_FRAGMENT, SettingsActivity.GeneralPreferenceFragment.class.getName());

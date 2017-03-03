@@ -24,6 +24,21 @@
     <include
         android:id="@+id/include"
         layout="@layout/content_main" />
+
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/connect"
+        android:layout_width="58dp"
+        android:layout_height="71dp"
+        android:layout_gravity=""
+        android:layout_margin="@dimen/fab_margin"
+        android:visibility="visible"
+        app:backgroundTint="@color/colorAccent"
+        app:elevation="0dp"
+        app:layout_anchor="@+id/include"
+        app:layout_anchorGravity="bottom|right"
+        app:rippleColor="#FFB3335E"
+        app:srcCompat="@android:drawable/ic_popup_sync" />
+
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/horn"
         android:layout_width="58dp"
@@ -33,21 +48,8 @@
         android:visibility="visible"
         app:layout_anchor="@+id/include"
         app:layout_anchorGravity="bottom|right"
-        app:srcCompat="@android:drawable/ic_lock_silent_mode_off"
-        app:rippleColor="#FFB3335E" />
-
-    <android.support.design.widget.FloatingActionButton
-        android:id="@+id/connect"
-        android:layout_width="58dp"
-        android:layout_height="71dp"
-        android:layout_gravity=""
-        android:layout_margin="@dimen/fab_margin"
-        android:visibility="visible"
-        app:layout_anchor="@+id/include"
-        app:layout_anchorGravity="bottom|right"
-        app:srcCompat="@android:drawable/ic_popup_sync"
         app:rippleColor="#FFB3335E"
-        app:backgroundTint="@color/colorAccent" />
+        app:srcCompat="@android:drawable/ic_lock_silent_mode_off" />
 
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/fab"
@@ -56,9 +58,10 @@
         android:layout_gravity=""
         android:layout_margin="@dimen/fab_margin"
         android:visibility="visible"
+        app:backgroundTint="@color/colorAccent"
         app:layout_anchor="@+id/include"
         app:layout_anchorGravity="bottom|right"
-        app:srcCompat="@android:drawable/stat_sys_data_bluetooth"
         app:rippleColor="#FFB3335E"
-        app:backgroundTint="@color/colorAccent" />
+        app:srcCompat="@android:drawable/stat_sys_data_bluetooth" />
+
 </android.support.design.widget.CoordinatorLayout>

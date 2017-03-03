@@ -4,6 +4,7 @@ package com.jared.packmule;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
@@ -38,7 +39,14 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         @Override
         public boolean onPreferenceChange(Preference preference, Object value) {
             String stringValue = value.toString();
-
+            if (preference.getKey().equals("speed_scale")) {
+                if (Double.parseDouble(stringValue) > 100) {
+                    stringValue = "100";
+                    SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(preference.getContext());
+                    settings.edit().putString("speed_scale", "100").apply();
+                }
+                stringValue += "%";
+            }
             if (preference instanceof ListPreference) {
                 // For list preferences, look up the correct display value in
                 // the preference's 'entries' list.
