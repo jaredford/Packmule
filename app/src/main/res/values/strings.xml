@@ -18,6 +18,7 @@
     <string name="action_settings">Settings</string>
     <string name="nav_bar_home">Home</string>
     <string name="title_activity_settings">Settings</string>
+    <string name="discovery_failed">Failed to find</string>
 
     <!-- Strings related to Settings -->
 

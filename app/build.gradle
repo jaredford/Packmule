@@ -6,10 +6,10 @@ android {
     buildToolsVersion "25.0.2"
     defaultConfig {
         applicationId "com.jared.packmule"
-        minSdkVersion 16
+        minSdkVersion 18
         targetSdkVersion 25
-        versionCode 20
-        versionName "1.5.5"
+        versionCode 21
+        versionName "1.6.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }

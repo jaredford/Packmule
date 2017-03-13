@@ -19,7 +19,7 @@ import java.util.Locale;
 
 // Class for storing extra utilities as to not clutter up main activity
 public class Utilities extends AppCompatActivity {
-    public final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    public BluetoothAdapter mBluetoothAdapter;
     TextView arduinoTxt;
     FloatingActionButton fab, horn, connect;
     RelativeLayout js;
@@ -50,6 +50,9 @@ public class Utilities extends AppCompatActivity {
     // This function gets called when bluetooth is on, but we are disconnected
     // from the packmule system
     public void setDisconnectedState() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        if (prefs.getBoolean("test_mode", false))
+            return;
         js.setBackground(ContextCompat.getDrawable(context, R.drawable.image_button_bg_disabled));
         fab.setVisibility(View.INVISIBLE);
         horn.setVisibility(View.INVISIBLE);

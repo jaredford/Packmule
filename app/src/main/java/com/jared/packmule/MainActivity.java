@@ -3,7 +3,12 @@ package com.jared.packmule;
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothSocket;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothGattService;
+import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -12,7 +17,6 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Message;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
@@ -35,120 +39,66 @@ import android.widget.Button;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.lang.ref.WeakReference;
-import java.lang.reflect.Method;
-import java.util.Set;
 import java.util.UUID;
 
 @SuppressWarnings("deprecation")
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
     private Utilities utilities;
-    private final static int RECEIVE_MESSAGE = 123;
-    private final static StringBuilder sb = new StringBuilder();
-    private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private static final String TAG = "MainActivity";
-    private final MyHandler messageHandler = new MyHandler(this);
-    private final String MAC = "98:D3:35:00:AA:83";
+    private final String MAC = "98:84:E3:D6:82:6F";//"98:D3:35:00:AA:83";
     private final int REQUEST_ENABLE_BT = 101;
     private final int REQUEST_COARSE_LOCATION = 404;
-    private ConnectedThread mConnectedThread;
     private TextView directionText;
     private Boolean isSnackBarShown = false;
-    private BluetoothSocket mBluetoothSocket = null;
+    private BluetoothGatt mBluetoothGatt;
+    private Handler mmHandler;
+    private Boolean isScanning = false;
     TextView arduinoTxt;
     RelativeLayout layout_joystick;
     FloatingActionButton fab, horn, connect;
+    public final static UUID UUID_BLUETOOTH =
+            UUID.fromString("0000ffe0-0000-1000-8000-00805f9b34fb");
+    public final static UUID UUID_BLUETOOTH_CHAR =
+            UUID.fromString("0000ffe1-0000-1000-8000-00805f9b34fb");
 
     //region Application States
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mmHandler = new Handler();
+        BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
         setContentView(R.layout.activity_main);
         layout_joystick = (RelativeLayout) findViewById(R.id.layout_joystick);
         arduinoTxt = (TextView) findViewById(R.id.arduinoTxt);
         initializeFabs();
         initializeNavigation();
-        initializeReceivers();
         setupJoyStick();
         utilities = new Utilities(getApplicationContext(), fab, horn, connect, arduinoTxt, layout_joystick);
+        utilities.mBluetoothAdapter = bluetoothManager.getAdapter();
+        scanLeDevice(true);
+        registerReceiver(mReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(mReceiver);
-        unregisterReceiver(mStateReceiver);
-        unregisterReceiver(mBondReceiver);
+        if (mBluetoothGatt != null) {
+            mBluetoothGatt.disconnect();
+        }
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        if (utilities.mBluetoothAdapter == null)
-            return;
-        if (!utilities.mBluetoothAdapter.isEnabled()) {
-            utilities.disablePackmuleInputs(true);
-        } else {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    // Set up a pointer to the remote node using it's address.
-                    BluetoothDevice device = utilities.mBluetoothAdapter.getRemoteDevice(MAC);
-
-                    // Two things are needed to make a connection:
-                    //   A MAC address, which we got above.
-                    //   A Service ID or UUID.  In this case we are using the
-                    //     UUID for SPP.
-
-                    try {
-                        mBluetoothSocket = createBluetoothSocket(device);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-
-                    // Discovery is resource intensive.  Make sure it isn't going on
-                    // when you attempt to connect and pass your message.
-                    utilities.mBluetoothAdapter.cancelDiscovery();
-
-                    // Establish the connection.  This will block until it connects.
-                    try {
-                        if (mBluetoothSocket != null) {
-                            mBluetoothSocket.connect();
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    utilities.disablePackmuleInputs(false);
-                                }
-                            });
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        try {
-                            mBluetoothSocket.close();
-                        } catch (Exception e2) {
-                            e2.printStackTrace();
-                        }
-                    }
-
-                    // Create a data stream so we can talk to server.
-                    mConnectedThread = new ConnectedThread(mBluetoothSocket);
-                    mConnectedThread.start();
-                }
-            }).start();
-        }
+        scanLeDevice(true);
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        try {
-            mBluetoothSocket.close();
-        } catch (Exception e) {
-            e.printStackTrace();
+        if (mBluetoothGatt != null) {
+            mBluetoothGatt.disconnect();
         }
     }
     //endregion
@@ -162,7 +112,7 @@ public class MainActivity extends AppCompatActivity
                     new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
                     REQUEST_COARSE_LOCATION);
         } else {
-            utilities.mBluetoothAdapter.startDiscovery();
+            utilities.mBluetoothAdapter.startLeScan(mLeScanCallback);
         }
     }
 
@@ -175,14 +125,177 @@ public class MainActivity extends AppCompatActivity
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     utilities.mBluetoothAdapter.startDiscovery();
                 } else {
-                    packmuleConnect();
+                    checkLocationPermission();
                 }
                 break;
             }
         }
     }
-    //endregion
 
+    //endregion
+    //region new Bluetooth
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
+                switch (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)) {
+                    case BluetoothAdapter.STATE_OFF:
+                        utilities.disablePackmuleInputs(true);
+                        break;
+                    case BluetoothAdapter.STATE_ON:
+                        utilities.setDisconnectedState();
+                        scanLeDevice(true);
+                        break;
+                }
+            }
+        }
+    };
+    private BluetoothAdapter.LeScanCallback mLeScanCallback =
+            new BluetoothAdapter.LeScanCallback() {
+                @Override
+                public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (device.getAddress().equals(MAC)) {
+                                scanLeDevice(false);
+                                utilities.disablePackmuleInputs(false);
+                                mBluetoothGatt = device.connectGatt(getApplicationContext(), false, mGattCallback);
+                            }
+                        }
+                    });
+                }
+            };
+
+    private void scanLeDevice(final boolean enable) {
+        if (isScanning == enable) { // If these have equivalent values, we know that there is nothing to do
+            return;
+        }
+        if (!utilities.mBluetoothAdapter.isEnabled()) {
+            utilities.disablePackmuleInputs(true);
+            return;
+        }
+        if (enable) {
+            // Stops scanning after a pre-defined scan period.
+            mmHandler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    isScanning = false;
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (mBluetoothGatt == null) {
+                                utilities.connect.clearAnimation();
+                                utilities.showToast(getResources().getString(R.string.discovery_failed) + " " + PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString("packmule_name", "Packmule"));
+                            } else {
+                                utilities.showToast("Found " + PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString("packmule_name", "Packmule"));
+                            }
+                            if (!utilities.mBluetoothAdapter.isEnabled())
+                                utilities.disablePackmuleInputs(true);
+                        }
+                    });
+                    utilities.mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                }
+            }, 15000);
+            isScanning = true;
+            utilities.setDisconnectedState();
+            utilities.mBluetoothAdapter.startLeScan(mLeScanCallback);
+        } else {
+            isScanning = false;
+            utilities.mBluetoothAdapter.stopLeScan(mLeScanCallback);
+        }
+    }
+
+    public boolean writeCharacteristic(String value) {
+        //check mBluetoothGatt is available
+        if (mBluetoothGatt == null) {
+            Log.e(TAG, "lost connection");
+            return false;
+        }
+        BluetoothGattService Service = mBluetoothGatt.getService(UUID_BLUETOOTH);
+        if (Service == null) {
+            Log.e(TAG, "service not found!");
+            return false;
+        }
+        BluetoothGattCharacteristic charac = Service.getCharacteristic(UUID_BLUETOOTH_CHAR);
+        if (charac == null) {
+            Log.e(TAG, "char not found!");
+            return false;
+        }
+        charac.setValue(value);
+        return mBluetoothGatt.writeCharacteristic(charac);
+    }
+
+    private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
+
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt, final BluetoothGattCharacteristic characteristic) {
+            // this will get called anytime you perform a read or write characteristic operation
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    utilities.setArduinoTxt(characteristic.getStringValue(0));
+                }
+            });
+        }
+
+        @Override
+        public void onConnectionStateChange(final BluetoothGatt gatt, final int status, final int newState) {
+            // this will get called when a device connects or disconnects
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (status == BluetoothGatt.GATT_SUCCESS) {
+                        switch (newState) {
+                            case BluetoothGatt.STATE_CONNECTED:
+                                utilities.disablePackmuleInputs(false);
+                                break;
+                            case BluetoothGatt.STATE_DISCONNECTED:
+                                utilities.disablePackmuleInputs(true);
+                                break;
+                        }
+                    }
+
+                }
+            });
+            gatt.discoverServices();
+        }
+
+        @Override
+        public void onServicesDiscovered(final BluetoothGatt gatt, final int status) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    utilities.setArduinoTxt("disc");
+                }
+            });
+            setCharacteristicNotification(gatt);
+        }
+
+        @Override
+        public void onCharacteristicRead(BluetoothGatt gatt,
+                                         BluetoothGattCharacteristic characteristic,
+                                         int status) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                Log.d(TAG, "read characteristic");
+            }
+        }
+
+        private void setCharacteristicNotification(BluetoothGatt gatt) {
+            BluetoothGattCharacteristic characteristic = gatt.getService(UUID_BLUETOOTH).getCharacteristic(UUID_BLUETOOTH_CHAR);
+            gatt.setCharacteristicNotification(characteristic, true);
+            Log.i(TAG, characteristic.toString());
+            if (UUID_BLUETOOTH_CHAR.equals(characteristic.getUuid())) {
+                BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
+                        UUID.fromString(GattAttributes.CLIENT_CHARACTERISTIC_CONFIG));
+                descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                gatt.writeDescriptor(descriptor);
+                gatt.readCharacteristic(characteristic);
+            }
+        }
+    };
+
+    //endregion
     //region Bluetooth Functions
     private void turnOnBluetooth() {
         new Thread(new Runnable() {
@@ -194,176 +307,9 @@ public class MainActivity extends AppCompatActivity
         }).start();
     }
 
-    private void packmuleConnect() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                Boolean pairedWithPackmule = false;
-                Set<BluetoothDevice> pairedDevices = utilities.mBluetoothAdapter.getBondedDevices();
-                if (pairedDevices.size() > 0) {
-                    // There are paired devices. Get the name and address of each paired device.
-                    for (BluetoothDevice device : pairedDevices) {
-                        if (device.getAddress().equals(MAC)) {
-                            pairedWithPackmule = true;
-                            ConnectThread ct = new ConnectThread(device);
-                            ct.start();
-                        }
-                    }
-                }
-                if (!pairedWithPackmule) {
-                    checkLocationPermission();
-                    utilities.mBluetoothAdapter.startDiscovery();
-                }
-            }
-        }).start();
-    }
-
-    private BluetoothSocket createBluetoothSocket(BluetoothDevice device) throws IOException {
-        try {
-            final Method m = device.getClass().getMethod("createInsecureRfcommSocketToServiceRecord", UUID.class);
-            return (BluetoothSocket) m.invoke(device, MY_UUID);
-        } catch (Exception e) {
-            Log.e(TAG, "Could not create Insecure RFComm Connection", e);
-        }
-        return device.createInsecureRfcommSocketToServiceRecord(MY_UUID);
-    }
-
-    public static class MyHandler extends Handler {
-        private final WeakReference<MainActivity> mActivity;
-        private MyHandler(MainActivity activity) {
-            mActivity = new WeakReference<>(activity);
-        }
-
-        @Override
-        public void handleMessage(Message msg) {
-            MainActivity activity = mActivity.get();
-            if (activity != null) {
-                switch (msg.what) {
-                    case RECEIVE_MESSAGE:
-                        byte[] readBuf = (byte[]) msg.obj;
-                        String strIncom = new String(readBuf, 0, msg.arg1);
-                        sb.append(strIncom);
-                        int endOfLineIndex = sb.indexOf("\r\n");
-                        if (endOfLineIndex > 0) {
-                            String sbprint = sb.substring(0, endOfLineIndex);
-                            sb.delete(0, sb.length());
-                            activity.utilities.setArduinoTxt(sbprint);
-                        }
-                        break;
-                }
-            }
-        }
-    }
-
-    private class ConnectThread extends Thread {
-        private final BluetoothSocket mmSocket;
-        private final BluetoothDevice mmDevice;
-
-        ConnectThread(BluetoothDevice device) {
-            // Use a temporary object that is later assigned to mmSocket
-            // because mmSocket is final.
-            BluetoothSocket tmp = null;
-            mmDevice = device;
-
-            try {
-                // Get a BluetoothSocket to connect with the given BluetoothDevice.
-                // MY_UUID is the app's UUID string, also used in the server code.
-                tmp = mmDevice.createInsecureRfcommSocketToServiceRecord(MY_UUID);
-            } catch (IOException e) {
-                Log.e(TAG, "Socket's create() method failed", e);
-            }
-            mmSocket = tmp;
-        }
-
-        public void run() {
-            // Cancel discovery because it otherwise slows down the connection.
-            utilities.mBluetoothAdapter.cancelDiscovery();
-
-            try {
-                // Connect to the remote device through the socket. This call blocks
-                // until it succeeds or throws an exception.
-                mmSocket.connect();
-            } catch (IOException connectException) {
-                connectException.printStackTrace();
-                try {
-                    mmSocket.close();
-                } catch (IOException closeException) {
-                    Log.e(TAG, "Could not close the client socket", closeException);
-                }
-                return;
-            }
-            // The connection attempt succeeded. Perform work associated with
-            // the connection in a separate thread.
-            utilities.disablePackmuleInputs(false);
-            bindToConnectedThread(mmSocket);
-        }
-
-        // Closes the client socket and causes the thread to finish.
-        /*public void cancel() {
-            try {
-                mmSocket.close();
-            } catch (IOException e) {
-                Log.e(TAG, "Could not close the client socket", e);
-            }
-        }*/
-    }
-
-    private void bindToConnectedThread(BluetoothSocket socket) {
-        mConnectedThread = new ConnectedThread(socket);
-    }
-
-    public class ConnectedThread extends Thread {
-        private final InputStream mmInStream;
-        private final OutputStream mmOutStream;
-
-        ConnectedThread(BluetoothSocket socket) {
-            InputStream tmpIn = null;
-            OutputStream tmpOut = null;
-
-            // Get the input and output streams, using temp objects because
-            // member streams are final
-            try {
-                tmpIn = socket.getInputStream();
-                tmpOut = socket.getOutputStream();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            mmInStream = tmpIn;
-            mmOutStream = tmpOut;
-        }
-
-        public void run() {
-            byte[] buffer = new byte[256];  // buffer store for the stream
-            int bytes; // bytes returned from read()
-
-            // Keep listening to the InputStream until an exception occurs
-            while (true) {
-                try {
-                    // Read from the InputStream
-                    bytes = mmInStream.read(buffer);        // Get number of bytes and message in "buffer"
-                    messageHandler.obtainMessage(RECEIVE_MESSAGE, bytes, -1, buffer).sendToTarget();     // Send to message queue Handler
-                } catch (Exception e) {
-                    break;
-                }
-            }
-        }
-
-        /* Call this from the main activity to send data to the remote device */
-        void write(String message) {
-            Log.d(TAG, "...Data to send: " + message + "...");
-            byte[] msgBuffer = message.getBytes();
-            try {
-                mmOutStream.write(msgBuffer);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
-    //endregion
-
     //region Joystick
     public void setupJoyStick() {
+        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         directionText = (TextView) findViewById(R.id.directionText);
         Button buttonStop = (Button) findViewById(R.id.button_stop);
         final JoyStick js = new JoyStick(getApplicationContext(), layout_joystick);
@@ -378,8 +324,10 @@ public class MainActivity extends AppCompatActivity
             public void onClick(View v) {
                 directionText.setText(getResources().getString(R.string.stopped));
                 try {
-                    utilities.setArduinoTxt("127127\n");
-                    mConnectedThread.write("127127\n");
+                    if (prefs.getBoolean("test_mode", false)) {
+                        utilities.setArduinoTxt("127127\n");
+                    }
+                    writeCharacteristic("127127\n");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -387,7 +335,6 @@ public class MainActivity extends AppCompatActivity
         });
         layout_joystick.setOnTouchListener(new View.OnTouchListener() {
             public boolean onTouch(View arg0, MotionEvent arg1) {
-                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
                 boolean manualMode = prefs.getBoolean("manual_mode", true);
                 String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
                 if (!utilities.inputsEnabled) {
@@ -424,12 +371,14 @@ public class MainActivity extends AppCompatActivity
                         }
                         //message = utilities.createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
                         message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getParams().width / 2);
-                        mConnectedThread.write(message);
-                        utilities.setArduinoTxt(message);
+                        writeCharacteristic(message);
+                        if (prefs.getBoolean("test_mode", false))
+                            utilities.setArduinoTxt(message);
                     } catch (Exception e) {
                         //message = utilities.createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
                         message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getParams().width / 2);
-                        utilities.setArduinoTxt(message);
+                        if (prefs.getBoolean("test_mode", false))
+                            utilities.setArduinoTxt(message);
                         e.printStackTrace();
                     }
                 } else if (!isSnackBarShown) {
@@ -474,7 +423,7 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View view) {
                 try {
-                    mConnectedThread.write("h\n");
+                    writeCharacteristic("h\n");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -494,7 +443,7 @@ public class MainActivity extends AppCompatActivity
         connect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                packmuleConnect();
+                scanLeDevice(true);
             }
         });
     }
@@ -545,7 +494,7 @@ public class MainActivity extends AppCompatActivity
         // Handle action bar item clicks here. The action bar will
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
+        // int id = item.getItemId();
         return super.onOptionsItemSelected(item);
     }
 
@@ -566,82 +515,5 @@ public class MainActivity extends AppCompatActivity
         drawer.closeDrawer(GravityCompat.START);
         return true;
     }
-    //endregion
-
-    //region Bluetooth Receivers
-    private void initializeReceivers() {
-        IntentFilter btFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-        registerReceiver(mStateReceiver, btFilter);
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        registerReceiver(mReceiver, filter);
-        IntentFilter bondFilter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
-        registerReceiver(mBondReceiver, bondFilter);
-    }
-
-    private final BroadcastReceiver mStateReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
-                final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
-                        BluetoothAdapter.ERROR);
-                switch (state) {
-                    case BluetoothAdapter.STATE_OFF:
-                    case BluetoothAdapter.STATE_TURNING_OFF:
-                        utilities.disablePackmuleInputs(true);
-                        break;
-                    case BluetoothAdapter.STATE_ON:
-                        utilities.setDisconnectedState();
-                        break;
-                    case BluetoothAdapter.STATE_TURNING_ON:
-                        break;
-                }
-            }
-        }
-    };
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-            String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
-            String action = intent.getAction();
-            if (action.equals(BluetoothDevice.ACTION_FOUND)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (device.getAddress().equals(MAC)) {
-                    utilities.mBluetoothAdapter.cancelDiscovery();
-                    utilities.showToast("Found " + muleName);
-                    ConnectThread connectThread = new ConnectThread(device);
-                    connectThread.start();
-                }
-            }
-        }
-    };
-    private final BroadcastReceiver mBondReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-            String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
-            String action = intent.getAction();
-            if (action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (device.getAddress().equals(MAC)) {
-                    final int state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR);
-                    switch (state) {
-                        case BluetoothDevice.BOND_NONE:
-                            utilities.disablePackmuleInputs(true);
-                            break;
-                        case BluetoothDevice.BOND_BONDED:
-                            utilities.disablePackmuleInputs(false);
-                            utilities.showToast("Connected to " + muleName + "!");
-                            break;
-                        default:
-                            break;
-                    }
-                }
-            }
-        }
-    };
     //endregion
 }
