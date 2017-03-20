@@ -21,10 +21,6 @@
 
     </android.support.design.widget.AppBarLayout>
 
-    <include
-        android:id="@+id/include"
-        layout="@layout/content_main" />
-
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/connect"
         android:layout_width="58dp"
@@ -33,7 +29,6 @@
         android:layout_margin="@dimen/fab_margin"
         android:visibility="visible"
         app:backgroundTint="@color/colorAccent"
-        app:elevation="0dp"
         app:layout_anchor="@+id/include"
         app:layout_anchorGravity="bottom|right"
         app:rippleColor="#FFB3335E"
@@ -63,5 +58,10 @@
         app:layout_anchorGravity="bottom|right"
         app:rippleColor="#FFB3335E"
         app:srcCompat="@android:drawable/stat_sys_data_bluetooth" />
+
+    <include
+        android:id="@+id/include"
+        layout="@layout/content_main"
+        android:layout_width="386dp" />
 
 </android.support.design.widget.CoordinatorLayout>

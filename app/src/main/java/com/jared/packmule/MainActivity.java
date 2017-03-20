@@ -39,7 +39,10 @@ import android.widget.Button;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import java.util.List;
 import java.util.UUID;
+
+import static java.lang.System.currentTimeMillis;
 
 @SuppressWarnings("deprecation")
 public class MainActivity extends AppCompatActivity
@@ -54,7 +57,9 @@ public class MainActivity extends AppCompatActivity
     private BluetoothGatt mBluetoothGatt;
     private Handler mmHandler;
     private Boolean isScanning = false;
+    Menu mMenu;
     TextView arduinoTxt;
+    BluetoothManager bluetoothManager;
     RelativeLayout layout_joystick;
     FloatingActionButton fab, horn, connect;
     public final static UUID UUID_BLUETOOTH =
@@ -67,7 +72,7 @@ public class MainActivity extends AppCompatActivity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mmHandler = new Handler();
-        BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
+        bluetoothManager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
         setContentView(R.layout.activity_main);
         layout_joystick = (RelativeLayout) findViewById(R.id.layout_joystick);
         arduinoTxt = (TextView) findViewById(R.id.arduinoTxt);
@@ -76,30 +81,42 @@ public class MainActivity extends AppCompatActivity
         setupJoyStick();
         utilities = new Utilities(getApplicationContext(), fab, horn, connect, arduinoTxt, layout_joystick);
         utilities.mBluetoothAdapter = bluetoothManager.getAdapter();
-        scanLeDevice(true);
+        if (utilities.mBluetoothAdapter.isEnabled()) {
+            if (bluetoothManager.getConnectedDevices(7).size() == 0) {
+                utilities.setDisconnectedState(false);
+            } else {
+                mBluetoothGatt = bluetoothManager.getConnectedDevices(7).get(0).connectGatt(getApplicationContext(), true, mGattCallback);
+                Boolean manualMode = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean("manual_mode", true);
+                writeCharacteristic(manualMode ? "m\n" : "a\n");
+            }
+        }
         registerReceiver(mReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (mBluetoothGatt != null) {
-            mBluetoothGatt.disconnect();
-        }
+        unregisterReceiver(mReceiver);
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        scanLeDevice(true);
+        if (utilities.mBluetoothAdapter.isEnabled()) {
+            if (bluetoothManager.getConnectedDevices(7).size() == 0) {
+                utilities.setDisconnectedState(false);
+            } else {
+                mBluetoothGatt = bluetoothManager.getConnectedDevices(7).get(0).connectGatt(getApplicationContext(), true, mGattCallback);
+                Boolean manualMode = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean("manual_mode", true);
+                writeCharacteristic(manualMode ? "m\n" : "a\n");
+                utilities.disablePackmuleInputs(false);
+            }
+        }
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        if (mBluetoothGatt != null) {
-            mBluetoothGatt.disconnect();
-        }
     }
     //endregion
 
@@ -141,9 +158,11 @@ public class MainActivity extends AppCompatActivity
                 switch (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)) {
                     case BluetoothAdapter.STATE_OFF:
                         utilities.disablePackmuleInputs(true);
+                        setMenuConnected(false);
                         break;
                     case BluetoothAdapter.STATE_ON:
-                        utilities.setDisconnectedState();
+                        utilities.setDisconnectedState(false);
+                        setMenuConnected(false);
                         scanLeDevice(true);
                         break;
                 }
@@ -160,7 +179,8 @@ public class MainActivity extends AppCompatActivity
                             if (device.getAddress().equals(MAC)) {
                                 scanLeDevice(false);
                                 utilities.disablePackmuleInputs(false);
-                                mBluetoothGatt = device.connectGatt(getApplicationContext(), false, mGattCallback);
+                                setMenuConnected(true);
+                                mBluetoothGatt = device.connectGatt(getApplicationContext(), true, mGattCallback);
                             }
                         }
                     });
@@ -168,12 +188,23 @@ public class MainActivity extends AppCompatActivity
             };
 
     private void scanLeDevice(final boolean enable) {
+        if (mBluetoothGatt == null) {
+            mBluetoothGatt = bluetoothManager.getConnectedDevices(7).size() > 0 ? bluetoothManager.getConnectedDevices(7).get(0).connectGatt(getApplicationContext(), true, mGattCallback) : null;
+        }
+        if (mBluetoothGatt != null) {
+            utilities.disablePackmuleInputs(false);
+            setMenuConnected(true);
+        }
         if (isScanning == enable) { // If these have equivalent values, we know that there is nothing to do
             return;
         }
         if (!utilities.mBluetoothAdapter.isEnabled()) {
             utilities.disablePackmuleInputs(true);
+            setMenuConnected(false);
             return;
+        } else {
+            utilities.setDisconnectedState(false);
+            setMenuConnected(false);
         }
         if (enable) {
             // Stops scanning after a pre-defined scan period.
@@ -187,18 +218,19 @@ public class MainActivity extends AppCompatActivity
                             if (mBluetoothGatt == null) {
                                 utilities.connect.clearAnimation();
                                 utilities.showToast(getResources().getString(R.string.discovery_failed) + " " + PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString("packmule_name", "Packmule"));
-                            } else {
-                                utilities.showToast("Found " + PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString("packmule_name", "Packmule"));
                             }
-                            if (!utilities.mBluetoothAdapter.isEnabled())
+                            if (!utilities.mBluetoothAdapter.isEnabled()) {
                                 utilities.disablePackmuleInputs(true);
+                                setMenuConnected(false);
+                            }
                         }
                     });
                     utilities.mBluetoothAdapter.stopLeScan(mLeScanCallback);
                 }
             }, 15000);
             isScanning = true;
-            utilities.setDisconnectedState();
+            utilities.setDisconnectedState(true);
+            setMenuConnected(false);
             utilities.mBluetoothAdapter.startLeScan(mLeScanCallback);
         } else {
             isScanning = false;
@@ -208,22 +240,48 @@ public class MainActivity extends AppCompatActivity
 
     public boolean writeCharacteristic(String value) {
         //check mBluetoothGatt is available
+        if (!utilities.mBluetoothAdapter.isEnabled()) {
+            utilities.disablePackmuleInputs(true);
+            setMenuConnected(false);
+            return false;
+        }
+        if (mBluetoothGatt == null) {
+            mBluetoothGatt = bluetoothManager.getConnectedDevices(7).size() > 0 ? bluetoothManager.getConnectedDevices(7).get(0).connectGatt(getApplicationContext(), true, mGattCallback) : null;
+        }
         if (mBluetoothGatt == null) {
             Log.e(TAG, "lost connection");
             return false;
         }
+        List<BluetoothDevice> deviceList = bluetoothManager.getConnectedDevices(7);
+        boolean connected = false;
+        for (BluetoothDevice device : deviceList) {
+            if (device.getName().equals("Packmule") && bluetoothManager.getConnectionState(device, 7) == BluetoothGatt.STATE_CONNECTED)
+                connected = true;
+        }
+        if (!connected) {
+            return false;
+        }
+        final long currentMillis = currentTimeMillis();
+        try {
+            while (mBluetoothGatt.getService(UUID_BLUETOOTH) == null) {
+                if (currentTimeMillis() > (currentMillis + 500)) {
+                    utilities.setDisconnectedState(false);
+                    setMenuConnected(false);
+                    Log.e(TAG, "service not found!");
+                    return false;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
         BluetoothGattService Service = mBluetoothGatt.getService(UUID_BLUETOOTH);
-        if (Service == null) {
-            Log.e(TAG, "service not found!");
-            return false;
-        }
-        BluetoothGattCharacteristic charac = Service.getCharacteristic(UUID_BLUETOOTH_CHAR);
-        if (charac == null) {
+        while (Service.getCharacteristic(UUID_BLUETOOTH_CHAR) == null) {
             Log.e(TAG, "char not found!");
-            return false;
         }
-        charac.setValue(value);
-        return mBluetoothGatt.writeCharacteristic(charac);
+        BluetoothGattCharacteristic characteristic = Service.getCharacteristic(UUID_BLUETOOTH_CHAR);
+        characteristic.setValue(value);
+        return mBluetoothGatt.writeCharacteristic(characteristic);
     }
 
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
@@ -231,12 +289,23 @@ public class MainActivity extends AppCompatActivity
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, final BluetoothGattCharacteristic characteristic) {
             // this will get called anytime you perform a read or write characteristic operation
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    utilities.setArduinoTxt(characteristic.getStringValue(0));
+            String temp = characteristic.getStringValue(0);
+            if (!temp.equals("m") && !temp.equals("a") && characteristic.getStringValue(0).length() != 7) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        utilities.setArduinoTxt(characteristic.getStringValue(0));
+                    }
+                });
+            } else {
+                final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+                boolean manualMode = prefs.getBoolean("manual_mode", true);
+                if (manualMode && temp.equals("a")) {
+                    writeCharacteristic("m");
+                } else if (!manualMode && temp.equals("m")) {
+                    writeCharacteristic("a");
                 }
-            });
+            }
         }
 
         @Override
@@ -248,10 +317,15 @@ public class MainActivity extends AppCompatActivity
                     if (status == BluetoothGatt.GATT_SUCCESS) {
                         switch (newState) {
                             case BluetoothGatt.STATE_CONNECTED:
+                                if (mBluetoothGatt == null) {
+                                    mBluetoothGatt = bluetoothManager.getConnectedDevices(7).size() > 0 ? bluetoothManager.getConnectedDevices(7).get(0).connectGatt(getApplicationContext(), true, mGattCallback) : null;
+                                }
                                 utilities.disablePackmuleInputs(false);
+                                setMenuConnected(true);
                                 break;
                             case BluetoothGatt.STATE_DISCONNECTED:
-                                utilities.disablePackmuleInputs(true);
+                                utilities.setDisconnectedState(false);
+                                setMenuConnected(false);
                                 break;
                         }
                     }
@@ -263,13 +337,14 @@ public class MainActivity extends AppCompatActivity
 
         @Override
         public void onServicesDiscovered(final BluetoothGatt gatt, final int status) {
+            setCharacteristicNotification(gatt);
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    utilities.setArduinoTxt("disc");
+                    utilities.disablePackmuleInputs(false);
+                    setMenuConnected(true);
                 }
             });
-            setCharacteristicNotification(gatt);
         }
 
         @Override
@@ -297,6 +372,11 @@ public class MainActivity extends AppCompatActivity
 
     //endregion
     //region Bluetooth Functions
+    private void setMenuConnected(boolean connected) {
+        mMenu.findItem(R.id.action_connect).setVisible(!connected);
+        mMenu.findItem(R.id.action_disconnect).setVisible(connected);
+    }
+
     private void turnOnBluetooth() {
         new Thread(new Runnable() {
             @Override
@@ -486,6 +566,8 @@ public class MainActivity extends AppCompatActivity
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
+        mMenu = menu;
+        setMenuConnected(false);
         return true;
     }
 
@@ -494,7 +576,18 @@ public class MainActivity extends AppCompatActivity
         // Handle action bar item clicks here. The action bar will
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
-        // int id = item.getItemId();
+        int id = item.getItemId();
+        if (id == R.id.action_disconnect) {
+            if (mBluetoothGatt != null) {
+                mBluetoothGatt.disconnect();
+            }
+        } else if (id == R.id.action_connect) {
+            if (bluetoothManager.getConnectedDevices(7).size() > 0) {
+                bluetoothManager.getConnectedDevices(7).get(0).connectGatt(getApplicationContext(), true, mGattCallback);
+            } else {
+                scanLeDevice(true);
+            }
+        }
         return super.onOptionsItemSelected(item);
     }
 

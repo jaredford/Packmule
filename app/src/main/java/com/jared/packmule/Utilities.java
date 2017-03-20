@@ -36,29 +36,22 @@ public class Utilities extends AppCompatActivity {
         this.connect = connect;
         this.arduinoTxt = arduinoTxt;
         this.js = js;
-        initializeButtonState();
-    }
-
-    private void initializeButtonState() {
-        if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
-            setDisconnectedState();
-        } else {
-            disablePackmuleInputs(true);
-        }
     }
 
     // This function gets called when bluetooth is on, but we are disconnected
     // from the packmule system
-    public void setDisconnectedState() {
+    public void setDisconnectedState(boolean rotate) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         if (prefs.getBoolean("test_mode", false))
             return;
         js.setBackground(ContextCompat.getDrawable(context, R.drawable.image_button_bg_disabled));
-        fab.setVisibility(View.INVISIBLE);
-        horn.setVisibility(View.INVISIBLE);
+        fab.setVisibility(View.GONE);
+        horn.setVisibility(View.GONE);
         connect.setVisibility(View.VISIBLE);
         inputsEnabled = false;
-        rotateConnectFab();
+        if (rotate) {
+            rotateConnectFab();
+        }
     }
 
     private void rotateConnectFab() {
@@ -75,12 +68,12 @@ public class Utilities extends AppCompatActivity {
         if (disable && !testMode) {
             js.setBackground(ContextCompat.getDrawable(context, R.drawable.image_button_bg_disabled));
             fab.setVisibility(View.VISIBLE);
-            horn.setVisibility(View.INVISIBLE);
+            horn.setVisibility(View.GONE);
         } else {
             js.setBackground(ContextCompat.getDrawable(context, R.drawable.image_button_bg));
-            fab.setVisibility(View.INVISIBLE);
+            fab.setVisibility(View.GONE);
             rotateAnimation.cancel();
-            connect.setVisibility(View.INVISIBLE);
+            connect.setVisibility(View.GONE);
             horn.setVisibility(View.VISIBLE);
         }
         inputsEnabled = !disable || testMode;
