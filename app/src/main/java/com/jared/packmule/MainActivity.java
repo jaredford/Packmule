@@ -451,7 +451,9 @@ public class MainActivity extends AppCompatActivity
                         }
                         //message = utilities.createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
                         message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getParams().width / 2);
-                        writeCharacteristic(message);
+                        if (bluetoothManager.getConnectedDevices(7).size() > 0) {
+                            writeCharacteristic(message);
+                        }
                         if (prefs.getBoolean("test_mode", false))
                             utilities.setArduinoTxt(message);
                     } catch (Exception e) {
@@ -582,8 +584,11 @@ public class MainActivity extends AppCompatActivity
                 mBluetoothGatt.disconnect();
             }
         } else if (id == R.id.action_connect) {
+
             if (bluetoothManager.getConnectedDevices(7).size() > 0) {
                 bluetoothManager.getConnectedDevices(7).get(0).connectGatt(getApplicationContext(), true, mGattCallback);
+            } else if (utilities.mBluetoothAdapter == null || !utilities.mBluetoothAdapter.isEnabled()) {
+                utilities.showToast("Bluetooth is turned off");
             } else {
                 scanLeDevice(true);
             }

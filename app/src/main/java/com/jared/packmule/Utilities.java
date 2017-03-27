@@ -26,7 +26,7 @@ public class Utilities extends AppCompatActivity {
     Context context;
     RotateAnimation rotateAnimation = new RotateAnimation(0, 360, Animation.RELATIVE_TO_SELF,
             .5f, Animation.RELATIVE_TO_SELF, .5f);
-    public Boolean inputsEnabled = true;
+    public Boolean inputsEnabled = false;
 
     public Utilities(Context context, FloatingActionButton fab, FloatingActionButton horn,
                      FloatingActionButton connect, TextView arduinoTxt, RelativeLayout js) {
@@ -63,6 +63,7 @@ public class Utilities extends AppCompatActivity {
     }
 
     public void disablePackmuleInputs(boolean disable) {
+        inputsEnabled = !disable;
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         Boolean testMode = prefs.getBoolean("test_mode", false);
         if (disable && !testMode) {
