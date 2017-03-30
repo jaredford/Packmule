@@ -50,6 +50,7 @@ public class MainActivity extends AppCompatActivity
     private Utilities utilities;
     private static final String TAG = "MainActivity";
     private final String MAC = "98:84:E3:D6:82:6F";//"98:D3:35:00:AA:83";
+    private final String CLIENT_CHARACTERISTIC_CONFIG = "00002902-0000-1000-8000-00805f9b34fb";
     private final int REQUEST_ENABLE_BT = 101;
     private final int REQUEST_COARSE_LOCATION = 404;
     private TextView directionText;
@@ -109,8 +110,10 @@ public class MainActivity extends AppCompatActivity
                 mBluetoothGatt = bluetoothManager.getConnectedDevices(7).get(0).connectGatt(getApplicationContext(), true, mGattCallback);
                 Boolean manualMode = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean("manual_mode", true);
                 writeCharacteristic(manualMode ? "m\n" : "a\n");
-                utilities.disablePackmuleInputs(false);
+                utilities.setDisconnectedState(false);
             }
+        } else {
+            utilities.disablePackmuleInputs(false);
         }
     }
 
@@ -362,7 +365,7 @@ public class MainActivity extends AppCompatActivity
             Log.i(TAG, characteristic.toString());
             if (UUID_BLUETOOTH_CHAR.equals(characteristic.getUuid())) {
                 BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
-                        UUID.fromString(GattAttributes.CLIENT_CHARACTERISTIC_CONFIG));
+                        UUID.fromString(CLIENT_CHARACTERISTIC_CONFIG));
                 descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
                 gatt.writeDescriptor(descriptor);
                 gatt.readCharacteristic(characteristic);

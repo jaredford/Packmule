@@ -42,8 +42,10 @@ public class Utilities extends AppCompatActivity {
     // from the packmule system
     public void setDisconnectedState(boolean rotate) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        if (prefs.getBoolean("test_mode", false))
+        if (prefs.getBoolean("test_mode", false)) {
+            disablePackmuleInputs(true);
             return;
+        }
         js.setBackground(ContextCompat.getDrawable(context, R.drawable.image_button_bg_disabled));
         fab.setVisibility(View.GONE);
         horn.setVisibility(View.GONE);
@@ -63,7 +65,6 @@ public class Utilities extends AppCompatActivity {
     }
 
     public void disablePackmuleInputs(boolean disable) {
-        inputsEnabled = !disable;
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         Boolean testMode = prefs.getBoolean("test_mode", false);
         if (disable && !testMode) {
