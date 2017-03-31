@@ -113,7 +113,7 @@ public class MainActivity extends AppCompatActivity
                 utilities.setDisconnectedState(false);
             }
         } else {
-            utilities.disablePackmuleInputs(false);
+            utilities.disablePackmuleInputs(!utilities.inputsEnabled);
         }
     }
 
