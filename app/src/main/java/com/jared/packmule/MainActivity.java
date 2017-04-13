@@ -50,7 +50,6 @@ public class MainActivity extends AppCompatActivity
     private Utilities utilities;
     private static final String TAG = "MainActivity";
     private final String MAC = "98:84:E3:D6:82:6F";//"98:D3:35:00:AA:83";
-    private final String CLIENT_CHARACTERISTIC_CONFIG = "00002902-0000-1000-8000-00805f9b34fb";
     private final int REQUEST_ENABLE_BT = 101;
     private final int REQUEST_COARSE_LOCATION = 404;
     private TextView directionText;
@@ -59,6 +58,7 @@ public class MainActivity extends AppCompatActivity
     private Handler mmHandler;
     private Boolean isScanning = false;
     Menu mMenu;
+    String CLIENT_CHARACTERISTIC_CONFIG = "00002902-0000-1000-8000-00805f9b34fb";
     TextView arduinoTxt;
     BluetoothManager bluetoothManager;
     RelativeLayout layout_joystick;
@@ -376,8 +376,10 @@ public class MainActivity extends AppCompatActivity
     //endregion
     //region Bluetooth Functions
     private void setMenuConnected(boolean connected) {
-        mMenu.findItem(R.id.action_connect).setVisible(!connected);
-        mMenu.findItem(R.id.action_disconnect).setVisible(connected);
+        if (mMenu != null) {
+            mMenu.findItem(R.id.action_connect).setVisible(!connected);
+            mMenu.findItem(R.id.action_disconnect).setVisible(connected);
+        }
     }
 
     private void turnOnBluetooth() {
@@ -452,7 +454,6 @@ public class MainActivity extends AppCompatActivity
                         } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
                             directionText.setText(getResources().getString(R.string.stopped));
                         }
-                        //message = utilities.createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
                         message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getParams().width / 2);
                         if (bluetoothManager.getConnectedDevices(7).size() > 0) {
                             writeCharacteristic(message);
@@ -572,7 +573,11 @@ public class MainActivity extends AppCompatActivity
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
         mMenu = menu;
-        setMenuConnected(false);
+        if (bluetoothManager.getConnectedDevices(7).size() > 0) {
+            setMenuConnected(true);
+        } else {
+            setMenuConnected(false);
+        }
         return true;
     }
 

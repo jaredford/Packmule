@@ -11,7 +11,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 
-@SuppressWarnings("ALL")
 class JoyStick extends AppCompatActivity {
     static final int STICK_NONE = 0;
     static final int STICK_UP = 1;
@@ -23,15 +22,13 @@ class JoyStick extends AppCompatActivity {
     static final int STICK_LEFT = 7;
     static final int STICK_UPLEFT = 8;
 
-    private int STICK_ALPHA = 200;
-    private int LAYOUT_ALPHA = 200;
     private int OFFSET = 0;
 
     private final ViewGroup mLayout;
     private final LayoutParams params;
     private int stick_width, stick_height;
 
-    private int position_x = 0, position_y = 0, min_distance = 0;
+    int position_x = 0, position_y = 0, min_distance = 0;
     private float distance = 0, angle = 0;
 
     private final DrawCanvas draw;
@@ -39,6 +36,8 @@ class JoyStick extends AppCompatActivity {
     private Bitmap stick;
 
     private boolean touch_state = false;
+    int STICK_ALPHA = 200;
+    int LAYOUT_ALPHA = 200;
 
     JoyStick(Context context, ViewGroup layout) {
         stick = BitmapFactory.decodeResource(context.getResources(), R.drawable.image_button);
@@ -86,21 +85,6 @@ class JoyStick extends AppCompatActivity {
             touch_state = false;
         }
     }
-
-    public int[] getPosition() {
-        if (distance > min_distance && touch_state) {
-            return new int[]{position_x, position_y};
-        }
-        return new int[]{0, 0};
-    }
-
-    public int getX() {
-        if (distance > min_distance && touch_state) {
-            return position_x;
-        }
-        return 0;
-    }
-
     public int getY() {
         if (distance > min_distance && touch_state) {
             return position_y;
@@ -122,10 +106,6 @@ class JoyStick extends AppCompatActivity {
             return distance;
         }
         return 0;
-    }
-
-    public int getMinimumDistance() {
-        return min_distance;
     }
 
     void setMinimumDistance() {
@@ -160,42 +140,14 @@ class JoyStick extends AppCompatActivity {
     public LayoutParams getParams() {
         return params;
     }
-    public int get4Direction() {
-        if (distance > min_distance && touch_state) {
-            if (angle >= 225 && angle < 315) {
-                return STICK_UP;
-            } else if (angle >= 315 || angle < 45) {
-                return STICK_RIGHT;
-            } else if (angle >= 45 && angle < 135) {
-                return STICK_DOWN;
-            } else if (angle >= 135 && angle < 225) {
-                return STICK_LEFT;
-            }
-        } else if (distance <= min_distance && touch_state) {
-            return STICK_NONE;
-        }
-        return 0;
-    }
-
-    public int getOffset() {
-        return OFFSET;
-    }
 
     void setOffset(float density) {
         OFFSET = (int) (30 * density);
     }
 
-    public int getStickAlpha() {
-        return STICK_ALPHA;
-    }
-
     void setStickAlpha() {
         STICK_ALPHA = 100;
         paint.setAlpha(100);
-    }
-
-    public int getLayoutAlpha() {
-        return LAYOUT_ALPHA;
     }
 
     void setLayoutAlpha() {
@@ -207,32 +159,6 @@ class JoyStick extends AppCompatActivity {
         stick = Bitmap.createScaledBitmap(stick, (int) (50*density), (int) (50*density), false);
         stick_width = stick.getWidth();
         stick_height = stick.getHeight();
-    }
-
-    public int getStickWidth() {
-        return stick_width;
-    }
-
-    public void setStickWidth(int width) {
-        stick = Bitmap.createScaledBitmap(stick, width, stick_height, false);
-        stick_width = stick.getWidth();
-    }
-
-    public int getStickHeight() {
-        return stick_height;
-    }
-
-    public void setStickHeight(int height) {
-        stick = Bitmap.createScaledBitmap(stick, stick_width, height, false);
-        stick_height = stick.getHeight();
-    }
-
-    public int getLayoutWidth() {
-        return params.width;
-    }
-
-    public int getLayoutHeight() {
-        return params.height;
     }
 
     private double cal_angle(float x, float y) {

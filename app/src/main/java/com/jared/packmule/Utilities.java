@@ -37,7 +37,6 @@ public class Utilities extends AppCompatActivity {
         this.arduinoTxt = arduinoTxt;
         this.js = js;
     }
-
     // This function gets called when bluetooth is on, but we are disconnected
     // from the packmule system
     public void setDisconnectedState(boolean rotate) {
@@ -79,35 +78,6 @@ public class Utilities extends AppCompatActivity {
             horn.setVisibility(View.VISIBLE);
         }
         inputsEnabled = !disable || testMode;
-    }
-
-    public String createSendingMessage(float angle, float distance, float y, float maxDistance) {
-        double l, r = 0;
-        String value;
-        if (angle == 0) {
-            l = distance;
-        } else if (angle == 180) {
-            l = distance;
-            r = l;
-        } else if (angle <= 90 || angle >= 270) {
-            r = Math.sqrt(Math.pow(distance, 2) / (1 + (1 / Math.pow(Math.sin(Math.toRadians(angle)), 2))));
-            l = Math.sqrt(1 / Math.pow(Math.sin(Math.toRadians(angle)), 2)) * r;
-        } else {
-            l = Math.sqrt(Math.pow(distance, 2) / (1 + (1 / Math.pow(Math.sin(Math.toRadians(angle)), 2))));
-            r = Math.sqrt(1 / Math.pow(Math.sin(Math.toRadians(angle)), 2)) * l;
-        }
-        int offset = 127;
-        l = Math.ceil(127 * l / maxDistance);
-        r = Math.ceil(127 * r / maxDistance);
-        if (y > 0) {
-            r = offset - Math.ceil(63 * r / 127);
-            l = offset - Math.ceil(63 * l / 127);
-        } else {
-            r = offset + r;
-            l = offset + l;
-        }
-        value = String.format(Locale.ENGLISH, "%03d", (int) l) + String.format(Locale.ENGLISH, "%03d", (int) r) + "\n";
-        return value;
     }
 
     public String createSendingMessageTankStyle(float angle, float y, float distance, float maxDistance) {
