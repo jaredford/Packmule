@@ -14,12 +14,14 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+
     <android.support.design.widget.NavigationView
         android:id="@+id/nav_view"
+        android:background="#b1b2fd"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        app:headerLayout="@layout/nav_header_main"
-        app:menu="@menu/activity_main_drawer" />
+        app:headerLayout="@layout/settings" />
+
 
 </android.support.v4.widget.DrawerLayout>

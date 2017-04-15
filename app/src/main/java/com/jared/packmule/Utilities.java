@@ -45,7 +45,7 @@ public class Utilities extends AppCompatActivity {
             disablePackmuleInputs(true);
             return;
         }
-        js.setBackground(ContextCompat.getDrawable(context, R.drawable.image_button_bg_disabled));
+        js.setBackground(ContextCompat.getDrawable(context, R.drawable.joystick_manual_enabled));
         fab.setVisibility(View.GONE);
         horn.setVisibility(View.GONE);
         connect.setVisibility(View.VISIBLE);
@@ -67,11 +67,9 @@ public class Utilities extends AppCompatActivity {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         Boolean testMode = prefs.getBoolean("test_mode", false);
         if (disable && !testMode) {
-            js.setBackground(ContextCompat.getDrawable(context, R.drawable.image_button_bg_disabled));
             fab.setVisibility(View.VISIBLE);
             horn.setVisibility(View.GONE);
         } else {
-            js.setBackground(ContextCompat.getDrawable(context, R.drawable.image_button_bg));
             fab.setVisibility(View.GONE);
             rotateAnimation.cancel();
             connect.setVisibility(View.GONE);

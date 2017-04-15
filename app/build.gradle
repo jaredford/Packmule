@@ -8,8 +8,8 @@ android {
         applicationId "com.jared.packmule"
         minSdkVersion 18
         targetSdkVersion 25
-        versionCode 25
-        versionName "1.7.3"
+        versionCode 27
+        versionName "1.8.1"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }

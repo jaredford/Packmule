@@ -17,12 +17,9 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
-import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.NavigationView;
-import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
@@ -35,7 +32,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -45,18 +41,16 @@ import java.util.UUID;
 import static java.lang.System.currentTimeMillis;
 
 @SuppressWarnings("deprecation")
-public class MainActivity extends AppCompatActivity
-        implements NavigationView.OnNavigationItemSelectedListener {
+public class MainActivity extends AppCompatActivity {
     private Utilities utilities;
     private static final String TAG = "MainActivity";
     private final String MAC = "98:84:E3:D6:82:6F";//"98:D3:35:00:AA:83";
     private final int REQUEST_ENABLE_BT = 101;
     private final int REQUEST_COARSE_LOCATION = 404;
     private TextView directionText;
-    private Boolean isSnackBarShown = false;
     private BluetoothGatt mBluetoothGatt;
     private Handler mmHandler;
-    private Boolean isScanning = false;
+    private Boolean isScanning = false, eStopEngaged = false;
     Menu mMenu;
     String CLIENT_CHARACTERISTIC_CONFIG = "00002902-0000-1000-8000-00805f9b34fb";
     TextView arduinoTxt;
@@ -72,6 +66,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).edit().putBoolean("manual_mode", true).apply();
         mmHandler = new Handler();
         bluetoothManager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
         setContentView(R.layout.activity_main);
@@ -103,17 +98,24 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onResume() {
         super.onResume();
+        Boolean manualMode = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean("manual_mode", false);
         if (utilities.mBluetoothAdapter.isEnabled()) {
             if (bluetoothManager.getConnectedDevices(7).size() == 0) {
                 utilities.setDisconnectedState(false);
             } else {
                 mBluetoothGatt = bluetoothManager.getConnectedDevices(7).get(0).connectGatt(getApplicationContext(), true, mGattCallback);
-                Boolean manualMode = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean("manual_mode", true);
                 writeCharacteristic(manualMode ? "m\n" : "a\n");
                 utilities.setDisconnectedState(false);
             }
         } else {
             utilities.disablePackmuleInputs(!utilities.inputsEnabled);
+        }
+        if (manualMode) {
+            directionText.setText("Stopped");
+            layout_joystick.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.joystick_manual_enabled));
+        } else {
+            directionText.setText("Following");
+            layout_joystick.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.joystick_stop_disengaged));
         }
     }
 
@@ -396,7 +398,6 @@ public class MainActivity extends AppCompatActivity
     public void setupJoyStick() {
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         directionText = (TextView) findViewById(R.id.directionText);
-        Button buttonStop = (Button) findViewById(R.id.button_stop);
         final JoyStick js = new JoyStick(getApplicationContext(), layout_joystick);
         float density = getResources().getDisplayMetrics().density;
         js.setStickSize(density);
@@ -404,94 +405,84 @@ public class MainActivity extends AppCompatActivity
         js.setStickAlpha();
         js.setOffset(density);
         js.setMinimumDistance();
-        buttonStop.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                directionText.setText(getResources().getString(R.string.stopped));
-                try {
-                    if (prefs.getBoolean("test_mode", false)) {
-                        utilities.setArduinoTxt("127127\n");
-                    }
-                    writeCharacteristic("127127\n");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
         layout_joystick.setOnTouchListener(new View.OnTouchListener() {
             public boolean onTouch(View arg0, MotionEvent arg1) {
-                boolean manualMode = prefs.getBoolean("manual_mode", true);
-                String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
-                if (!utilities.inputsEnabled) {
-                    return true;
-                }
-                if (manualMode) {
-                    js.drawStick(arg1);
-                    String message;
-                    try {
-                        if (arg1.getAction() == MotionEvent.ACTION_DOWN
-                                || arg1.getAction() == MotionEvent.ACTION_MOVE) {
-                            int direction = js.get8Direction();
-                            if (direction == JoyStick.STICK_UP) {
-                                directionText.setText(getResources().getString(R.string.forward));
-                            } else if (direction == JoyStick.STICK_UPRIGHT) {
-                                directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.right));
-                            } else if (direction == JoyStick.STICK_RIGHT) {
-                                directionText.setText(getResources().getString(R.string.right));
-                            } else if (direction == JoyStick.STICK_DOWNRIGHT) {
-                                directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.right));
-                            } else if (direction == JoyStick.STICK_DOWN) {
-                                directionText.setText(getResources().getString(R.string.reverse));
-                            } else if (direction == JoyStick.STICK_DOWNLEFT) {
-                                directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.left));
-                            } else if (direction == JoyStick.STICK_LEFT) {
-                                directionText.setText(getResources().getString(R.string.left));
-                            } else if (direction == JoyStick.STICK_UPLEFT) {
-                                directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.left));
-                            } else if (direction == JoyStick.STICK_NONE) {
+                try {
+                    boolean manualMode = prefs.getBoolean("manual_mode", true);
+                    String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
+                    if (!utilities.inputsEnabled) {
+                        return true;
+                    }
+                    if (manualMode) {
+                        js.drawStick(arg1);
+                        String message;
+                        try {
+                            if (arg1.getAction() == MotionEvent.ACTION_DOWN
+                                    || arg1.getAction() == MotionEvent.ACTION_MOVE) {
+                                int direction = js.get8Direction();
+                                if (direction == JoyStick.STICK_UP) {
+                                    directionText.setText(getResources().getString(R.string.forward));
+                                } else if (direction == JoyStick.STICK_UPRIGHT) {
+                                    directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.right));
+                                } else if (direction == JoyStick.STICK_RIGHT) {
+                                    directionText.setText(getResources().getString(R.string.right));
+                                } else if (direction == JoyStick.STICK_DOWNRIGHT) {
+                                    directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.right));
+                                } else if (direction == JoyStick.STICK_DOWN) {
+                                    directionText.setText(getResources().getString(R.string.reverse));
+                                } else if (direction == JoyStick.STICK_DOWNLEFT) {
+                                    directionText.setText(getResources().getString(R.string.reverse) + " " + getResources().getString(R.string.left));
+                                } else if (direction == JoyStick.STICK_LEFT) {
+                                    directionText.setText(getResources().getString(R.string.left));
+                                } else if (direction == JoyStick.STICK_UPLEFT) {
+                                    directionText.setText(getResources().getString(R.string.forward) + " " + getResources().getString(R.string.left));
+                                } else if (direction == JoyStick.STICK_NONE) {
+                                    directionText.setText(getResources().getString(R.string.stopped));
+                                }
+                            } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
                                 directionText.setText(getResources().getString(R.string.stopped));
                             }
-                        } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
-                            directionText.setText(getResources().getString(R.string.stopped));
+                            message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getParams().width / 2);
+                            if (bluetoothManager.getConnectedDevices(7).size() > 0) {
+                                writeCharacteristic(message);
+                            }
+                        } catch (Exception e) {
+                            message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getParams().width / 2);
+                            if (prefs.getBoolean("test_mode", false))
+                                utilities.setArduinoTxt(message);
+                            e.printStackTrace();
                         }
-                        message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getParams().width / 2);
-                        if (bluetoothManager.getConnectedDevices(7).size() > 0) {
-                            writeCharacteristic(message);
+                    } else if (arg1.getAction() == MotionEvent.ACTION_DOWN) {
+                        if (eStopEngaged) {
+                            layout_joystick.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.joystick_stop_engaged_press));
+                        } else {
+                            layout_joystick.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.joystick_stop_disengaged_press));
                         }
-                        if (prefs.getBoolean("test_mode", false))
-                            utilities.setArduinoTxt(message);
-                    } catch (Exception e) {
-                        //message = utilities.createSendingMessage(js.getAngle(), js.getDistance(), js.getY(), js.getParams().width / 2);
-                        message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getParams().width / 2);
-                        if (prefs.getBoolean("test_mode", false))
-                            utilities.setArduinoTxt(message);
-                        e.printStackTrace();
+                    } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
+                        if (arg1.getX() < layout_joystick.getWidth() && arg1.getY() < layout_joystick.getHeight() && arg1.getX() > 0 && arg1.getY() > 0) {
+                            if (eStopEngaged) {
+                                eStopEngaged = false;
+                                layout_joystick.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.joystick_stop_disengaged));
+                                directionText.setText("Following");
+                                if (bluetoothManager.getConnectedDevices(7).size() > 0) {
+                                    writeCharacteristic("d\n");
+                                }
+                            } else {
+                                eStopEngaged = true;
+                                layout_joystick.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.joystick_stop_engaged));
+                                directionText.setText("Stopped");
+                                if (bluetoothManager.getConnectedDevices(7).size() > 0) {
+                                    writeCharacteristic("e\n");
+                                }
+                            }
+                        } else if (eStopEngaged) {
+                            layout_joystick.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.joystick_stop_engaged));
+                        } else {
+                            layout_joystick.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.joystick_stop_disengaged));
+                        }
                     }
-                } else if (!isSnackBarShown) {
-                    final Intent i = new Intent(getApplicationContext(), SettingsActivity.class);
-                    i.putExtra(PreferenceActivity.EXTRA_SHOW_FRAGMENT, SettingsActivity.GeneralPreferenceFragment.class.getName());
-                    i.putExtra(PreferenceActivity.EXTRA_NO_HEADERS, true);
-                    View.OnClickListener listener = new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            startActivity(i);
-                        }
-                    };
-                    Snackbar.make(arg0, muleName + " " + getResources().getString(R.string.joystick_disabled_reason), Snackbar.LENGTH_LONG)
-                            .setCallback(new Snackbar.Callback() {
-                                @Override
-                                public void onDismissed(Snackbar snackbar, int event) {
-                                    isSnackBarShown = false;
-                                    super.onDismissed(snackbar, event);
-                                }
-
-                                @Override
-                                public void onShown(Snackbar snackbar) {
-                                    isSnackBarShown = true;
-                                    super.onShown(snackbar);
-                                }
-                            })
-                            .setAction("Fix", listener).show();
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
                 return true;
             }
@@ -541,11 +532,31 @@ public class MainActivity extends AppCompatActivity
         setSupportActionBar(toolbar);
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
-                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close) {
+            /**
+             * Called when a drawer has settled in a completely closed state.
+             */
+            public void onDrawerClosed(View view) {
+                super.onDrawerClosed(view);
+                Boolean manualMode = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean("manual_mode", false);
+                if (manualMode) {
+                    directionText.setText("Stopped");
+                    layout_joystick.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.joystick_manual_enabled));
+                } else {
+                    directionText.setText("Following");
+                    layout_joystick.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.joystick_stop_disengaged));
+                }
+            }
+
+            /**
+             * Called when a drawer has settled in a completely open state.
+             */
+            public void onDrawerOpened(View drawerView) {
+                super.onDrawerOpened(drawerView);
+            }
+        };
         drawer.setDrawerListener(toggle);
         toggle.syncState();
-        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
-        navigationView.setNavigationItemSelectedListener(this);
     }
 
     @Override
@@ -602,24 +613,6 @@ public class MainActivity extends AppCompatActivity
             }
         }
         return super.onOptionsItemSelected(item);
-    }
-
-    @SuppressWarnings("StatementWithEmptyBody")
-    @Override
-    public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-        // Handle navigation view item clicks here.
-        int id = item.getItemId();
-        if (id == R.id.nav_settings) {
-            Intent i = new Intent(this, SettingsActivity.class);
-            i.putExtra(PreferenceActivity.EXTRA_SHOW_FRAGMENT, SettingsActivity.GeneralPreferenceFragment.class.getName());
-            i.putExtra(PreferenceActivity.EXTRA_NO_HEADERS, true);
-            startActivity(i);
-            return true;
-        }
-
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-        drawer.closeDrawer(GravityCompat.START);
-        return true;
     }
     //endregion
 }

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="@dimen/nav_header_height"
     android:background="@drawable/side_nav_bar"
@@ -8,34 +7,18 @@
     android:orientation="vertical"
     android:paddingBottom="10dp"
     android:paddingEnd="0dp"
-    android:paddingLeft="@dimen/activity_horizontal_margin"
-    android:paddingRight="0dp"
     android:paddingStart="0dp"
-    android:paddingTop="0dp"
+    android:paddingTop="50dp"
     android:theme="@style/ThemeOverlay.AppCompat.Dark"
     android:weightSum="1">
-
-    <ImageView
-        android:id="@+id/imageView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:contentDescription="@string/app_name"
-        android:paddingEnd="0dp"
-        android:paddingLeft="10dp"
-        android:paddingRight="0dp"
-        android:paddingStart="10dp"
-        android:paddingTop="0dp"
-        android:paddingBottom="30dp"
-        app:srcCompat="@drawable/pack_mule_single" />
 
     <TextView
         android:id="@+id/textView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:paddingEnd="0dp"
-        android:paddingLeft="10dp"
-        android:paddingRight="0dp"
         android:paddingStart="10dp"
-        android:text="@string/packmule_dt02" />
-
+        android:textColor="#ffffff"
+        android:text="@string/settings_title"
+        android:textSize="18sp" />
 </LinearLayout>
