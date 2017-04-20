@@ -1,19 +1,4 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <SwitchPreference
-        android:defaultValue="true"
-        android:key="manual_mode"
-        android:summary="@string/pref_description_manual_mode"
-        android:title="@string/pref_title_manual_mode" />
-
-    <SwitchPreference
-        android:defaultValue="false"
-        android:key="test_mode"
-        android:summary="@string/pref_description_test_mode"
-        android:title="@string/pref_title_test_mode" />
-
-    <!-- NOTE: EditTextPreference accepts EditText attributes. -->
-    <!-- NOTE: EditTextPreference's summary should be set to its value by the activity code. -->
     <EditTextPreference
         android:capitalize="words"
         android:defaultValue="@string/pref_default_display_name"
@@ -23,6 +8,11 @@
         android:selectAllOnFocus="true"
         android:singleLine="true"
         android:title="@string/pref_title_display_name" />
+    <SwitchPreference
+        android:defaultValue="true"
+        android:key="manual_mode"
+        android:summary="@string/pref_description_manual_mode"
+        android:title="@string/pref_title_manual_mode" />
     <EditTextPreference
         android:id="@+id/speed"
         android:defaultValue="@string/pref_default_speed"

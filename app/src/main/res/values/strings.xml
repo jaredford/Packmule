@@ -26,11 +26,8 @@
     <!-- Example General settings -->
     <string name="pref_header_general">General</string>
 
-    <string name="pref_title_manual_mode">Enable manual mode</string>
-    <string name="pref_description_manual_mode">Allow this application to directly control the packmule
-    </string>
-    <string name="pref_title_test_mode">Enter test mode</string>
-    <string name="pref_description_test_mode">Test the app by simulating connected state
+    <string name="pref_title_manual_mode">Manual mode</string>
+    <string name="pref_description_manual_mode">Control the packmule
     </string>
     <string name="pref_title_speed">Max Speed</string>
     <string name="pref_default_speed">25</string>

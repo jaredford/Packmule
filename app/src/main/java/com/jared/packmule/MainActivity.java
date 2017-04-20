@@ -19,6 +19,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
+import android.support.constraint.ConstraintLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -32,7 +33,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import java.util.List;
@@ -55,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
     String CLIENT_CHARACTERISTIC_CONFIG = "00002902-0000-1000-8000-00805f9b34fb";
     TextView arduinoTxt;
     BluetoothManager bluetoothManager;
-    RelativeLayout layout_joystick;
+    ConstraintLayout layout_joystick;
     FloatingActionButton fab, horn, connect;
     public final static UUID UUID_BLUETOOTH =
             UUID.fromString("0000ffe0-0000-1000-8000-00805f9b34fb");
@@ -70,14 +70,15 @@ public class MainActivity extends AppCompatActivity {
         mmHandler = new Handler();
         bluetoothManager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
         setContentView(R.layout.activity_main);
-        layout_joystick = (RelativeLayout) findViewById(R.id.layout_joystick);
+        layout_joystick = (ConstraintLayout) findViewById(R.id.layout_joystick);
         arduinoTxt = (TextView) findViewById(R.id.arduinoTxt);
         initializeFabs();
         initializeNavigation();
         setupJoyStick();
         utilities = new Utilities(getApplicationContext(), fab, horn, connect, arduinoTxt, layout_joystick);
         utilities.mBluetoothAdapter = bluetoothManager.getAdapter();
-        if (utilities.mBluetoothAdapter.isEnabled()) {
+
+        if (utilities.mBluetoothAdapter != null && utilities.mBluetoothAdapter.isEnabled()) {
             if (bluetoothManager.getConnectedDevices(7).size() == 0) {
                 utilities.setDisconnectedState(false);
             } else {
@@ -99,7 +100,7 @@ public class MainActivity extends AppCompatActivity {
     public void onResume() {
         super.onResume();
         Boolean manualMode = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean("manual_mode", false);
-        if (utilities.mBluetoothAdapter.isEnabled()) {
+        if (utilities.mBluetoothAdapter != null && utilities.mBluetoothAdapter.isEnabled()) {
             if (bluetoothManager.getConnectedDevices(7).size() == 0) {
                 utilities.setDisconnectedState(false);
             } else {
@@ -145,7 +146,7 @@ public class MainActivity extends AppCompatActivity {
             case REQUEST_COARSE_LOCATION: {
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    utilities.mBluetoothAdapter.startDiscovery();
+                    utilities.mBluetoothAdapter.startLeScan(mLeScanCallback);
                 } else {
                     checkLocationPermission();
                 }
@@ -232,11 +233,11 @@ public class MainActivity extends AppCompatActivity {
                     });
                     utilities.mBluetoothAdapter.stopLeScan(mLeScanCallback);
                 }
-            }, 15000);
+            }, 5000);
             isScanning = true;
             utilities.setDisconnectedState(true);
             setMenuConnected(false);
-            utilities.mBluetoothAdapter.startLeScan(mLeScanCallback);
+            checkLocationPermission();
         } else {
             isScanning = false;
             utilities.mBluetoothAdapter.stopLeScan(mLeScanCallback);
@@ -410,9 +411,6 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     boolean manualMode = prefs.getBoolean("manual_mode", true);
                     String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
-                    if (!utilities.inputsEnabled) {
-                        return true;
-                    }
                     if (manualMode) {
                         js.drawStick(arg1);
                         String message;
@@ -442,14 +440,11 @@ public class MainActivity extends AppCompatActivity {
                             } else if (arg1.getAction() == MotionEvent.ACTION_UP) {
                                 directionText.setText(getResources().getString(R.string.stopped));
                             }
-                            message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getParams().width / 2);
+                            message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getWidth() / 2);
                             if (bluetoothManager.getConnectedDevices(7).size() > 0) {
                                 writeCharacteristic(message);
                             }
                         } catch (Exception e) {
-                            message = utilities.createSendingMessageTankStyle(js.getAngle(), js.getY(), js.getDistance(), js.getParams().width / 2);
-                            if (prefs.getBoolean("test_mode", false))
-                                utilities.setArduinoTxt(message);
                             e.printStackTrace();
                         }
                     } else if (arg1.getAction() == MotionEvent.ACTION_DOWN) {
@@ -584,10 +579,14 @@ public class MainActivity extends AppCompatActivity {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
         mMenu = menu;
-        if (bluetoothManager.getConnectedDevices(7).size() > 0) {
-            setMenuConnected(true);
-        } else {
-            setMenuConnected(false);
+        try {
+            if (bluetoothManager.getConnectedDevices(7).size() > 0) {
+                setMenuConnected(true);
+            } else {
+                setMenuConnected(false);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         return true;
     }

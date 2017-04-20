@@ -9,7 +9,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewGroup.LayoutParams;
 
 class JoyStick extends AppCompatActivity {
     static final int STICK_NONE = 0;
@@ -25,7 +24,6 @@ class JoyStick extends AppCompatActivity {
     private int OFFSET = 0;
 
     private final ViewGroup mLayout;
-    private final LayoutParams params;
     private int stick_width, stick_height;
 
     int position_x = 0, position_y = 0, min_distance = 0;
@@ -38,6 +36,7 @@ class JoyStick extends AppCompatActivity {
     private boolean touch_state = false;
     int STICK_ALPHA = 200;
     int LAYOUT_ALPHA = 200;
+    float width;
 
     JoyStick(Context context, ViewGroup layout) {
         stick = BitmapFactory.decodeResource(context.getResources(), R.drawable.image_button);
@@ -48,33 +47,33 @@ class JoyStick extends AppCompatActivity {
         draw = new DrawCanvas(context);
         paint = new Paint();
         mLayout = layout;
-        params = mLayout.getLayoutParams();
     }
 
     void drawStick(MotionEvent arg1) {
-        position_x = (int) (arg1.getX() - (params.width / 2));
-        position_y = (int) (arg1.getY() - (params.height / 2));
+        width = mLayout.getMeasuredWidth();
+        position_x = (int) (arg1.getX() - (width / 2));
+        position_y = (int) (arg1.getY() - (width / 2));
         distance = (float) Math.sqrt(Math.pow(position_x, 2) + Math.pow(position_y, 2));
         angle = (float) cal_angle(position_x, position_y);
 
 
         if (arg1.getAction() == MotionEvent.ACTION_DOWN) {
-            if (distance <= (params.width / 2) - OFFSET) {
+            if (distance <= (width / 2) - OFFSET) {
                 draw.position(arg1.getX(), arg1.getY());
                 draw();
                 touch_state = true;
             }
         } else if (arg1.getAction() == MotionEvent.ACTION_MOVE && touch_state) {
-            if (distance <= (params.width / 2) - OFFSET) {
+            if (distance <= (width / 2) - OFFSET) {
                 draw.position(arg1.getX(), arg1.getY());
                 draw();
-            } else if (distance > (params.width / 2) - OFFSET) {
+            } else if (distance > (width / 2) - OFFSET) {
                 float x = (float) (Math.cos(Math.toRadians(cal_angle(position_x, position_y)))
-                        * ((params.width / 2) - OFFSET));
+                        * ((width / 2) - OFFSET));
                 float y = (float) (Math.sin(Math.toRadians(cal_angle(position_x, position_y)))
-                        * ((params.height / 2) - OFFSET));
-                x += (params.width / 2);
-                y += (params.height / 2);
+                        * ((width / 2) - OFFSET));
+                x += (width / 2);
+                y += (width / 2);
                 draw.position(x, y);
                 draw();
             } else {
@@ -100,14 +99,18 @@ class JoyStick extends AppCompatActivity {
     }
 
     public float getDistance() {
+        width = mLayout.getMeasuredWidth();
         if (distance > min_distance && touch_state) {
-            if(distance > params.height / 2)
-                return params.height / 2;
+            if (distance > width / 2)
+                return width / 2;
             return distance;
         }
         return 0;
     }
 
+    public float getWidth() {
+        return width;
+    }
     void setMinimumDistance() {
         min_distance = 10;
     }
@@ -135,10 +138,6 @@ class JoyStick extends AppCompatActivity {
             return STICK_NONE;
         }
         return 0;
-    }
-
-    public LayoutParams getParams() {
-        return params;
     }
 
     void setOffset(float density) {

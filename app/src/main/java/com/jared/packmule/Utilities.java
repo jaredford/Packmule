@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import android.support.constraint.ConstraintLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.animation.LinearOutSlowInInterpolator;
@@ -11,7 +12,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -22,14 +22,14 @@ public class Utilities extends AppCompatActivity {
     public BluetoothAdapter mBluetoothAdapter;
     TextView arduinoTxt;
     FloatingActionButton fab, horn, connect;
-    RelativeLayout js;
+    ConstraintLayout js;
     Context context;
     RotateAnimation rotateAnimation = new RotateAnimation(0, 360, Animation.RELATIVE_TO_SELF,
             .5f, Animation.RELATIVE_TO_SELF, .5f);
     public Boolean inputsEnabled = false;
 
     public Utilities(Context context, FloatingActionButton fab, FloatingActionButton horn,
-                     FloatingActionButton connect, TextView arduinoTxt, RelativeLayout js) {
+                     FloatingActionButton connect, TextView arduinoTxt, ConstraintLayout js) {
         this.context = context;
         this.fab = fab;
         this.horn = horn;
@@ -41,10 +41,6 @@ public class Utilities extends AppCompatActivity {
     // from the packmule system
     public void setDisconnectedState(boolean rotate) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        if (prefs.getBoolean("test_mode", false)) {
-            disablePackmuleInputs(true);
-            return;
-        }
         js.setBackground(ContextCompat.getDrawable(context, R.drawable.joystick_manual_enabled));
         fab.setVisibility(View.GONE);
         horn.setVisibility(View.GONE);
@@ -65,8 +61,7 @@ public class Utilities extends AppCompatActivity {
 
     public void disablePackmuleInputs(boolean disable) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        Boolean testMode = prefs.getBoolean("test_mode", false);
-        if (disable && !testMode) {
+        if (disable) {
             fab.setVisibility(View.VISIBLE);
             horn.setVisibility(View.GONE);
         } else {
@@ -75,7 +70,7 @@ public class Utilities extends AppCompatActivity {
             connect.setVisibility(View.GONE);
             horn.setVisibility(View.VISIBLE);
         }
-        inputsEnabled = !disable || testMode;
+        inputsEnabled = !disable;
     }
 
     public String createSendingMessageTankStyle(float angle, float y, float distance, float maxDistance) {
