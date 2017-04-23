@@ -223,7 +223,7 @@ public class MainActivity extends AppCompatActivity {
                         public void run() {
                             if (mBluetoothGatt == null) {
                                 utilities.connect.clearAnimation();
-                                utilities.showToast(getResources().getString(R.string.discovery_failed) + " " + PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString("packmule_name", "Packmule"));
+                                utilities.showToast(getResources().getString(R.string.discovery_failed));
                             }
                             if (!utilities.mBluetoothAdapter.isEnabled()) {
                                 utilities.disablePackmuleInputs(true);
@@ -295,23 +295,12 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, final BluetoothGattCharacteristic characteristic) {
             // this will get called anytime you perform a read or write characteristic operation
-            String temp = characteristic.getStringValue(0);
-            if (!temp.equals("m") && !temp.equals("a") && characteristic.getStringValue(0).length() != 7) {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         utilities.setArduinoTxt(characteristic.getStringValue(0));
                     }
                 });
-            } else {
-                final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-                boolean manualMode = prefs.getBoolean("manual_mode", true);
-                if (manualMode && temp.equals("a")) {
-                    writeCharacteristic("m");
-                } else if (!manualMode && temp.equals("m")) {
-                    writeCharacteristic("a");
-                }
-            }
         }
 
         @Override
@@ -410,7 +399,6 @@ public class MainActivity extends AppCompatActivity {
             public boolean onTouch(View arg0, MotionEvent arg1) {
                 try {
                     boolean manualMode = prefs.getBoolean("manual_mode", true);
-                    String muleName = prefs.getString("packmule_name", getResources().getString(R.string.pref_default_display_name));
                     if (manualMode) {
                         js.drawStick(arg1);
                         String message;
@@ -535,9 +523,11 @@ public class MainActivity extends AppCompatActivity {
                 super.onDrawerClosed(view);
                 Boolean manualMode = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean("manual_mode", false);
                 if (manualMode) {
+                    writeCharacteristic("m");
                     directionText.setText("Stopped");
                     layout_joystick.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.joystick_manual_enabled));
                 } else {
+                    writeCharacteristic("a");
                     directionText.setText("Following");
                     layout_joystick.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.joystick_stop_disengaged));
                 }

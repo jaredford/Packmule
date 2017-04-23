@@ -6,7 +6,7 @@
     <string name="left">Left</string>
     <string name="stopped">Stopped</string>
     <string name="stop">Stop</string>
-    <string name="joystick_disabled_reason">is not in manual mode!</string>
+    <string name="joystick_disabled_reason">Your packmule is not in manual mode!</string>
     <string name="title_activity_main" tools:keep="@string/title_activity_main">MainActivity</string>
     <string name="packmule_dt02">Packmule - Design Team 02</string>
     <string name="more">More</string>
@@ -19,7 +19,7 @@
     <string name="action_disconnect">Disconnect</string>
     <string name="nav_bar_home">Home</string>
     <string name="title_activity_settings">Settings</string>
-    <string name="discovery_failed">Failed to find</string>
+    <string name="discovery_failed">Failed to find your packmule</string>
 
     <!-- Strings related to Settings -->
 
@@ -31,9 +31,6 @@
     </string>
     <string name="pref_title_speed">Max Speed</string>
     <string name="pref_default_speed">25</string>
-
-    <string name="pref_title_display_name">Name your packmule</string>
-    <string name="pref_default_display_name">Packmule</string>
     <string name="settings">Settings</string>
     <string name="settings_title">Settings</string>
 

@@ -40,7 +40,6 @@ public class Utilities extends AppCompatActivity {
     // This function gets called when bluetooth is on, but we are disconnected
     // from the packmule system
     public void setDisconnectedState(boolean rotate) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         js.setBackground(ContextCompat.getDrawable(context, R.drawable.joystick_manual_enabled));
         fab.setVisibility(View.GONE);
         horn.setVisibility(View.GONE);
@@ -60,7 +59,6 @@ public class Utilities extends AppCompatActivity {
     }
 
     public void disablePackmuleInputs(boolean disable) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         if (disable) {
             fab.setVisibility(View.VISIBLE);
             horn.setVisibility(View.GONE);
@@ -75,8 +73,7 @@ public class Utilities extends AppCompatActivity {
 
     public String createSendingMessageTankStyle(float angle, float y, float distance, float maxDistance) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        int maxSpeed = Integer.parseInt(prefs.getString("speed_scale", "3"));
-        String value;
+        int maxSpeed = Integer.parseInt(prefs.getString("speed_scale", "20"));
         double speed, direction;
         speed = distance > maxDistance ? maxDistance : distance;
         angle = angle < 180 ? (180 - angle) : (angle - 180);
@@ -93,8 +90,7 @@ public class Utilities extends AppCompatActivity {
         speed += 127;
         direction += 127;
         direction = speed == 127 ? 127 : direction;
-        value = String.format(Locale.ENGLISH, "%03d", (int) speed) + String.format(Locale.ENGLISH, "%03d", (int) direction) + "\n";
-        return value;
+        return String.format(Locale.ENGLISH, "%03d", (int) speed) + String.format(Locale.ENGLISH, "%03d", (int) direction) + "\n";
     }
 
     public void showToast(String text) {

@@ -47,9 +47,6 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                 }
                 stringValue += "%";
             }
-            if (preference.getKey().equals("manual_mode")) {
-
-            }
             if (preference instanceof ListPreference) {
                 // For list preferences, look up the correct display value in
                 // the preference's 'entries' list.
@@ -171,7 +168,6 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             // to their values. When their values change, their summaries are
             // updated to reflect the new value, per the Android Design
             // guidelines.
-            bindPreferenceSummaryToValue(findPreference("packmule_name"));
             bindPreferenceSummaryToValue(findPreference("speed_scale"));
         }
 
